@@ -1,0 +1,26 @@
+# Security
+.env
+.env.local
+__pycache__/
+*.pyc
+
+# Data (Keep directory structure but ignore contents)
+data/reports/waste/*
+!data/reports/waste/.gitkeep
+data/reports/road/*
+!data/reports/road/.gitkeep
+data/reports/vans/*
+!data/reports/vans/.gitkeep
+data/reports/weather/*
+!data/reports/weather/.gitkeep
+data/output/*
+!data/output/.gitkeep
+data/backups/
+
+# System
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+venv/
+env/

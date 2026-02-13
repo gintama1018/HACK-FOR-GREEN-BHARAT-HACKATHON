@@ -1,0 +1,5008 @@
+================================================================================
+FILE: About Projects built on pathway Framework.pdf
+================================================================================
+--- Page 1 ---
+               Hack For Green Bharat Hackathon Problem Statement document  
+About Pathway :  
+ 
+Pathway is a Palo Alto –based AI company building  LiveAI™ system s that process and adapt 
+to data in real time, unifying batch and streaming workflows through a Python -native 
+framework powered by a high -performance Rust engine. Founded around 2020 and backed 
+by Łukasz Kaiser (co -creator of Transformers), Pathway is led by CEO Zuzanna Stamirowska, 
+CTO Jan Chorowski, and CSO Adrian Koso wski. Its platform offers 300+ connectors, real -time 
+retrieval -augmented generation (RAG) pipelines, and built -in vector/full -text search, 
+enabling dynamic AI assistants, analytics, and document processing without separate vector 
+databases. Trusted by orga nizations like NATO, Intel, DB Schenker, and Formula 1 teams, 
+Pathway has been recognized as a leader in next -gen generative AI infrastructure . 
+ 
+In this Hack For Green Bharat hackathon , you’ll build the projects using 
+pathway framework . 
+ 
+Pathway is recently known for inventing BDH Architecture – a post -transformer 
+LLM architecture that enables generalization, real -time learning in LLMs, and 
+interpretability (unlike other black -box LLMs).  
+ 
+However, be mindful that your focus for this hackathon is on the Pathway 
+framework. The Pathway framework, when used for RAG/Argentic use cases, 
+maintains a live hybrid index that updates the instant a file changes. You can 
+use it t o connect 300+ data sources, for pre -processing and post processing if 
+bandwidth permits during the hackathon, for its MCP server, or simply for live 
+vector and BM25 indexes that always stay up to date.  
+ 
+Resources : 
+ 
+BDH Architecture  : https://github.com/pathwaycom/bdh  
+Pathway Developer Documentation :  Welcome | Pathway  
+Pathway YAML templates  : Pathway Templates :  
+Community Showcase projects  : Blog | Pathway  
+Pathway Github Repo :  Pathway · GitHub  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+--- Page 2 ---
+          Project Pathway Track Eligibility (Important ) 
+ 
+ 
+Allowed Tracks (Pathway Compatible)  
+Track  Allowed  Notes  
+AI / Machine Learning  ✅ Yes Real-time AI, RAG, agents, streaming ML  
+Sustainability  ✅ Yes Live monitoring, optimization, alerts  
+Climate & Environment  ✅ Yes Weather, pollution, climate data streaming  
+FinTech  ✅ Yes Fraud detection, spend analysis, risk  
+Healthcare  ✅ Yes Simulated / anonymized real -time data  
+   
+Logistics & Supply Chain  ✅ Yes ETA prediction, tracking, optimization  
+Manufacturing / Industry 4.0  ✅ Yes Predictive maintenance, automation  
+Cyber security  & System 
+Monitoring  ✅ Yes Logs, anomaly detection, alerts  
+ 
+ 
+Tracks Not Suitable for Pathway  
+1. Static Web Development  
+2. UI / Frontend -Only Applications  
+3. Mobile Apps with No Real -Time Data Processing  
+4. Offline Machine Learning Model Training Only  
+5. Pure Blockchain / Smart Contract Development (On -Chain Only)  
+6. Game Development  
+7. AR / VR Projects without Real -Time AI or Data Streaming  
+8. Simple CRUD Applications  
+9. Design -Only or No -Code Projects  
+10. Projects without Live or Continuously Updating Data  
+ 
+ 
+ 
+📌 Mandatory Note (optional to include)  
+Pathway must be used as the  real-time data ingestion, streaming processing, 
+and AI reasoning layer  in all track s. 
+ 
+ 
+ 
+ 
+ 
+--- Page 3 ---
+         Some Project ideas using pathway framework  
+ 
+ 
+• Real -Time Document Q&A; (Live RAG)  
+• Live News / Content Summarizer  
+• Simulated Event Monitoring Dashboard  
+• Real -Time Financial Spend Analyzer  
+• Live Stock / Crypto Market Intelligence  
+• Streaming Log Analysis & Anomaly Detection  
+• Sm art Logistics & ETA Prediction System  
+• Predictive Maintenance + Technician Assistant  
+• Multi -Source Real -Time AI Agent  
+ 
+Important Note  : This hackathon focuses on building real -time AI systems 
+using Pathway. Projects must ingest live or simulated streams, proc ess them 
+continuously, and update outputs automatically.  
+ 
+One -line rule : If your system does not update automatically when new data 
+arrives, it is not a Pathway project.  
+ 
+ 
+ALL THE BEST TO ALL HARDWORKING PARTICIPAINTS  
+ 
+ 
+Best Regards , 
+TEAM HACK FOR GREEN BHARAT  
+
+================================================================================
+FILE: Duality AI - Hack For Green Bharat hackathon Problem Statement.pdf
+================================================================================
+--- Page 1 ---
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Duality
+ 
+AIʼs
+ 
+Offroad
+ 
+Semantic
+ 
+Scene
+ 
+Segmentation
+ 
+ 
+1 .
+  
+O v e r v i e w
+ 
+ 
+ 
+Duality
+ 
+AI
+ 
+is
+ 
+excited
+ 
+to
+ 
+present
+ 
+the
+ 
+Offroad
+ 
+Autonomy
+ 
+Segment ation
+ 
+challenge,
+ 
+a
+ 
+challenge
+ 
+designed
+ 
+to
+ 
+explore
+ 
+cutting-edge
+ 
+AI
+ 
+training
+ 
+techniques.
+ 
+Participants
+ 
+will
+ 
+train
+ 
+a
+ 
+model
+ 
+using
+ 
+annotated
+ 
+images
+ 
+of
+ 
+a
+ 
+desert
+ 
+environment,
+ 
+then
+ 
+test
+ 
+that
+ 
+model
+ 
+on
+ 
+a
+ 
+novel,
+ 
+but
+ 
+still
+ 
+desert,
+ 
+environment.
+ 
+All
+ 
+the
+ 
+data
+ 
+is
+ 
+generated
+ 
+from
+ 
+Duality
+ 
+AIʼs
+ 
+digital
+ 
+twin
+ 
+simulation
+ 
+platform,
+ 
+Falcon,
+ 
+using
+ 
+FalconCloudʼ s
+ 
+geospatial-based
+ 
+digital
+ 
+twin
+ 
+environments.
+ 
+Each
+ 
+team
+ 
+will
+ 
+work
+ 
+to
+ 
+achieve
+ 
+the
+ 
+most
+ 
+accurate
+ 
+and
+ 
+precise
+ 
+model
+ 
+by
+ 
+adjusting
+ 
+training
+ 
+parameters
+ 
+and
+ 
+processes.
+ 
+Along
+ 
+the
+ 
+way,
+ 
+participants
+ 
+will
+ 
+learn
+ 
+how
+ 
+Duality
+ 
+AI
+ 
+uses
+ 
+industry-proven
+ 
+techniques
+ 
+and
+ 
+tools
+ 
+and
+ 
+high-qualit y
+ 
+synthetic
+ 
+data
+ 
+to
+ 
+train
+ 
+AI
+ 
+models
+ 
+for
+ 
+context
+ 
+shifts,
+ 
+unseen
+ 
+environments,
+ 
+or
+ 
+difficult-to-access
+ 
+data,
+ 
+such
+ 
+as
+ 
+remote
+ 
+areas.
+ 
+Through
+ 
+this
+ 
+competition,
+ 
+participants
+ 
+will
+ 
+develop
+ 
+novel
+ 
+AI
+ 
+training
+ 
+skills,
+ 
+enhance
+ 
+their
+ 
+portfolio,
+ 
+build
+ 
+connections
+ 
+with
+ 
+Duality
+ 
+AI
+ 
+and
+ 
+other
+ 
+participants,
+ 
+and
+ 
+have
+ 
+the
+ 
+opportunity
+ 
+to
+ 
+win
+ 
+prizes
+ 
+and
+ 
+recognition!
+ 
+1
+ 
+
+--- Page 2 ---
+ 
+O b j e c t i v e s
+ 
+ 
+●
+ 
+Train
+ 
+a
+ 
+robust
+ 
+semantic
+ 
+segment ation
+ 
+model
+ 
+using
+ 
+the
+ 
+provided
+ 
+synthetic
+ 
+dataset
+ 
+to
+ 
+accurately
+ 
+segment
+ 
+an
+ 
+environment,
+ 
+which
+ 
+is
+ 
+crucial
+ 
+to
+ 
+off-road
+ 
+autonomy
+ 
+●
+ 
+Evaluate
+ 
+model
+ 
+performance
+ 
+in
+ 
+novel
+ 
+(but
+ 
+similar)
+ 
+scenarios.
+ 
+●
+ 
+Benchmar k
+ 
+and
+ 
+optimize
+ 
+your
+ 
+model
+ 
+to
+ 
+improve
+ 
+accurac y,
+ 
+generalizabilit y,
+ 
+and
+ 
+efficiency
+ 
+for
+ 
+real-world
+ 
+deployment
+ 
+scenarios.
+ 
+ 
+I m p o r t a n c e
+ 
+o f
+ 
+D i g i t a l
+ 
+T w i n s
+ 
+f o r
+ 
+S e g m e n t a t i o n
+ 
+a n d
+ 
+O f f - r o a d
+ 
+A u t o n o m y
+ 
+ 
+Unmanned
+ 
+Ground
+ 
+Vehicles
+ 
+UGVs
+ 
+rely
+ 
+on
+ 
+robust
+ 
+computer
+ 
+vision
+ 
+models
+ 
+for
+ 
+effective
+ 
+path
+ 
+planning
+ 
+and
+ 
+decision-making
+ 
+in
+ 
+complex,
+ 
+dynamic
+ 
+environments.
+ 
+Among
+ 
+critical
+ 
+CV
+ 
+tasks,
+ 
+semantic
+ 
+segment ation
+ 
+plays
+ 
+a
+ 
+pivotal
+ 
+role
+ 
+in
+ 
+obstacle
+ 
+avoidance
+ 
+by
+ 
+providing
+ 
+fine-grained
+ 
+scene
+ 
+understanding.
+ 
+However,
+ 
+training
+ 
+high-per forming
+ 
+segment ation
+ 
+models
+ 
+traditionall y
+ 
+relies
+ 
+on
+ 
+supervised
+ 
+learning,
+ 
+which
+ 
+requires
+ 
+large,
+ 
+labeled
+ 
+datasets
+ 
+for
+ 
+effective
+ 
+training.
+ 
+Attaining
+ 
+this
+ 
+data
+ 
+in
+ 
+the
+ 
+real
+ 
+world,
+ 
+with
+ 
+necessar y
+ 
+volume
+ 
+and
+ 
+variety
+ 
+for
+ 
+successful
+ 
+training,
+ 
+is
+ 
+generall y
+ 
+costly
+ 
+and
+ 
+time-consuming,
+ 
+and
+ 
+often
+ 
+still
+ 
+proves
+ 
+insufficient.
+ 
+ 
+Synthetic
+ 
+data
+ 
+presents
+ 
+a
+ 
+promising
+ 
+solution,
+ 
+and
+ 
+has
+ 
+already
+ 
+been
+ 
+explored
+ 
+as
+ 
+a
+ 
+means
+ 
+to
+ 
+address
+ 
+data
+ 
+scarcity
+ 
+and
+ 
+improve
+ 
+model
+ 
+robustness
+ 
+in
+ 
+computer
+ 
+vision
+ 
+tasks.
+ 
+Creating
+ 
+the
+ 
+data
+ 
+costs
+ 
+much
+ 
+less
+ 
+and
+ 
+takes
+ 
+very
+ 
+little
+ 
+time
+ 
+compared
+ 
+to
+ 
+traditional
+ 
+data
+ 
+collection
+ 
+and
+ 
+annotation
+ 
+methods.
+ 
+Additionall y,
+ 
+users
+ 
+can
+ 
+control
+ 
+variations
+ 
+and
+ 
+edge
+ 
+cases
+ 
+such
+ 
+as
+ 
+weather
+ 
+events,
+ 
+time
+ 
+of
+ 
+day,
+ 
+and
+ 
+specific
+ 
+environment
+ 
+characteristics,
+ 
+providing
+ 
+diverse
+ 
+data
+ 
+for
+ 
+robust
+ 
+training.
+ 
+ 
+ 
+ 
+H a c k a t h o n
+ 
+S t r u c t u r e
+ 
+ 
+ 
+Dat a
+ 
+Ov er vie w
+ 
+2
+ 
+
+--- Page 3 ---
+ 
+●
+ 
+Participants
+ 
+will
+ 
+work
+ 
+with
+ 
+a
+ 
+dataset
+ 
+generated
+ 
+from
+ 
+FalconEdit or
+ 
+of
+ 
+various
+ 
+desert
+ 
+environment
+ 
+twins.
+ 
+●
+ 
+Classes:
+ 
+ 
+ID
+ 
+Class
+ 
+Name
+ 
+Picture
+ 
+100
+ 
+Trees
+ 
+ 
+200
+ 
+Lush
+ 
+Bushes
+ 
+ 
+300
+ 
+Dry
+ 
+Grass
+ 
+ 
+500
+ 
+Dry
+ 
+Bushes
+ 
+ 
+550
+ 
+Ground
+ 
+Clutter
+ 
+ 
+3
+ 
+
+--- Page 4 ---
+ 
+600
+ 
+Flowers
+ 
+ 
+700
+ 
+Logs
+ 
+ 
+800
+ 
+Rocks
+ 
+ 
+7100
+ 
+Landscape
+ 
+*all
+ 
+general
+ 
+ground
+ 
+that
+ 
+isnʼt
+ 
+another
+ 
+category*
+ 
+10000
+ 
+Sky
+ 
+ 
+ 
+Participants
+ 
+will
+ 
+process
+ 
+synthetic
+ 
+data,
+ 
+train
+ 
+an
+ 
+AI
+ 
+model
+ 
+to
+ 
+segment
+ 
+the
+ 
+data
+ 
+images,
+ 
+validate
+ 
+performance
+ 
+on
+ 
+unseen
+ 
+images
+ 
+from
+ 
+a
+ 
+separate
+ 
+desert
+ 
+environment,
+ 
+and
+ 
+optimize
+ 
+accurac y
+ 
+under
+ 
+realistic
+ 
+constraint s.
+ 
+ 
+i .
+ 
+H a c k a t h o n
+ 
+T a s k s
+ 
+ 
+ 
+To
+ 
+maximiz e
+ 
+efficiency,
+ 
+we
+ 
+recommend
+ 
+dividing
+ 
+responsibilities
+ 
+based
+ 
+on
+ 
+these
+ 
+roles.
+ 
+Proper
+ 
+delegation
+ 
+will
+ 
+help
+ 
+streamline
+ 
+the
+ 
+workflow
+ 
+and
+ 
+ensure
+ 
+high-qualit y
+ 
+results
+ 
+across
+ 
+the
+ 
+technical
+ 
+and
+ 
+presentation
+ 
+component s.
+ 
+ 
+1.
+ 
+AI
+ 
+Engineer ing
+ 
+●
+ 
+Train
+ 
+and
+ 
+fine-tune
+ 
+the
+ 
+model
+ 
+using
+ 
+the
+ 
+generated
+ 
+dataset.
+ 
+●
+ 
+Evaluate
+ 
+model
+ 
+performance.
+ 
+4
+ 
+
+--- Page 5 ---
+ 
+●
+ 
+Use
+ 
+optimization
+ 
+techniques
+ 
+to
+ 
+improve
+ 
+accurac y
+ 
+and
+ 
+reduce
+ 
+inference
+ 
+time.
+ 
+ 
+2.
+ 
+Document ation
+ 
+&
+ 
+Pr esenting
+ 
+Final
+ 
+T e am
+ 
+R esul t s
+ 
+●
+ 
+Document
+ 
+the
+ 
+workflow,
+ 
+including:
+ 
+○
+ 
+Data
+ 
+augment ation/filtering
+ 
+strategies
+ 
+○
+ 
+model
+ 
+training
+ 
+○
+ 
+evaluation
+ 
+metrics
+ 
+such
+ 
+as
+ 
+loss
+ 
+graphs
+ 
+●
+ 
+Prepare
+ 
+a
+ 
+structured
+ 
+report
+ 
+and
+ 
+final
+ 
+presentation
+ 
+showcasing
+ 
+findings,
+ 
+results,
+ 
+and
+ 
+insights.
+ 
+●
+ 
+Create
+ 
+visualizations
+ 
+such
+ 
+as
+ 
+performance
+ 
+and
+ 
+loss
+ 
+graphs
+ 
+to
+ 
+highlight
+ 
+model
+ 
+behavior.
+ 
+ 
+i i .
+ 
+K e y
+ 
+D e l i v e r a b l e s
+ 
+ 
+At
+ 
+the
+ 
+end
+ 
+of
+ 
+the
+ 
+hackathon,
+ 
+teams
+ 
+must
+ 
+submit:
+ 
+ 
+1.
+ 
+ 
+A
+ 
+T r ained
+ 
+Semantic
+ 
+Segment ation
+ 
+Model
+ 
+a.
+ 
+Fully
+ 
+trained
+ 
+model
+ 
+that
+ 
+segment s
+ 
+the
+ 
+testing
+ 
+images
+ 
+into
+ 
+categories.
+ 
+b.
+ 
+The
+ 
+package
+ 
+must
+ 
+include
+ 
+model
+ 
+weights,
+ 
+scripts,
+ 
+and
+ 
+config
+ 
+files.
+ 
+ 
+2.
+ 
+P er f or mance
+ 
+Ev aluation
+ 
+&
+ 
+Anal ysis
+ 
+R epor t,
+ 
+including
+ 
+but
+ 
+is
+ 
+not
+ 
+limited
+ 
+to:
+ 
+a.
+ 
+IoU
+ 
+Scor e
+ 
+to
+ 
+evaluate
+ 
+model
+ 
+accurac y.
+ 
+b.
+ 
+Loss
+ 
+gr aphs
+ 
+to
+ 
+visualize
+ 
+performance.
+ 
+c.
+ 
+F ailur e
+ 
+Case
+ 
+Anal ysis
+,
+ 
+highlighting
+ 
+misclassific ations
+ 
+and
+ 
+possible
+ 
+improvements.
+ 
+ 
+i i i .
+ 
+J u d g i n g
+ 
+C r i t e r i a
+ 
+ 
+Teams
+ 
+will
+ 
+be
+ 
+evaluated
+ 
+on
+ 
+a
+ 
+100-point
+ 
+scale,
+ 
+based
+ 
+on
+ 
+the
+ 
+following
+ 
+criteria:
+ 
+5
+ 
+
+--- Page 6 ---
+ 
+a.
+ 
+Model
+ 
+P er f or mance
+ 
+ 
+ 
+IoU
+ 
+Scor e
+ 
+…………………………………………………………………….…...…… 80
+ 
+Points
+ 
+○
+ 
+Measures
+ 
+the
+ 
+accurac y
+ 
+of
+  
+pixel
+ 
+classific ation.
+ 
+b.
+ 
+P er f or mance
+ 
+R epor t
+ 
+Clar it y
+ 
+Structur ed
+ 
+Findings
+ 
+&
+ 
+Det ailed
+ 
+R epor ting
+……………………………….…20
+ 
+Points
+ 
+○
+ 
+Well-organized
+ 
+document ation
+ 
+of
+ 
+the
+ 
+methodology ,
+ 
+challenges,
+ 
+and
+ 
+solutions.
+ 
+○
+ 
+Clearly
+ 
+outlined
+ 
+steps,
+ 
+including
+ 
+any
+ 
+dataset
+ 
+modifications,
+ 
+model
+ 
+training,
+ 
+and
+ 
+evaluation.
+ 
+ 
+Teams
+ 
+must
+ 
+balance
+ 
+technical
+ 
+performance
+ 
+with
+ 
+clear
+ 
+and
+ 
+professional
+ 
+document ation
+ 
+to
+ 
+maximiz e
+ 
+their
+ 
+score.
+ 
+ 
+i v .
+ 
+I m p o r t a n t
+ 
+l i n k s
+ 
+ 
+ 
+USE
+ 
+LINK
+ 
+Create
+ 
+a
+ 
+free
+ 
+Falcon
+ 
+account
+ 
+https://falcon.duality.ai/auth/sign-up?utm_ 
+source=hackathon&utm_medium=instruct 
+ions&utm_campaign=Hack-Green-Bharat
+ 
+Download
+ 
+the
+ 
+dataset
+ 
+https://falcon.duality.ai/secure/documentat 
+ion/hackathon-segmentation-desert?utm_ 
+source=hackathon&utm_medium=instruct 
+ions&utm_campaign=Hack-Green-Bharat
+ 
+Discord
+ 
+Forum
+ 
+https://discord.com/invite/dualityfalconco 
+mmunity
+ 
+ 
+ 
+ 
+6
+ 
+
+--- Page 7 ---
+ 
+ 
+2 .
+ 
+T a s k
+ 
+I n s t r u c t i o n s
+ 
+ 
+i .
+ 
+A I
+ 
+E n g i n e e r i n g :
+ 
+ 
+ 
+This
+ 
+section
+ 
+will
+ 
+walk
+ 
+you
+ 
+through:
+ 
+➔
+ 
+Setting
+ 
+up
+ 
+your
+ 
+Falcon
+ 
+account
+ 
+➔
+ 
+Downloading
+ 
+and
+ 
+using
+ 
+the
+ 
+dataset
+ 
+➔
+ 
+Preparing
+ 
+your
+ 
+training
+ 
+environment
+ 
+➔
+ 
+Underst anding
+ 
+the
+ 
+training
+ 
+workflow
+ 
+ 
+ 
+1.
+ 
+Cr e at e
+ 
+a
+ 
+F alcon
+ 
+A ccount:
+ 
+ 
+a.
+ 
+Visit
+ 
+Falcon
+ 
+and
+ 
+sign
+ 
+up
+ 
+for
+ 
+an
+ 
+account
+ 
+if
+ 
+you
+ 
+donʼt
+ 
+have
+ 
+one
+ 
+b.
+ 
+Once
+ 
+registered,
+ 
+log
+ 
+in
+ 
+to
+ 
+access
+ 
+datasets,
+ 
+exercises,
+ 
+and
+ 
+tools.
+ 
+ 
+ 
+2.
+ 
+Do wnlo ad
+ 
+t he
+ 
+Dat aset
+ 
+a.
+ 
+Download
+ 
+the
+ 
+dataset
+ 
+to
+ 
+your
+ 
+local
+ 
+machine
+ 
+(see
+ 
+the
+ 
+“Important
+ 
+Linksˮ
+ 
+section).
+ 
+You
+ 
+will
+ 
+need
+ 
+to
+ 
+create
+ 
+a
+ 
+FREE
+ 
+Falcon
+ 
+account,
+ 
+if
+ 
+you
+ 
+havenʼt
+ 
+already.
+ 
+i.
+ 
+This
+ 
+page
+ 
+has
+ 
+all
+ 
+the
+ 
+resources
+ 
+for
+ 
+all
+ 
+the
+ 
+Duality
+ 
+Hackathon
+ 
+tracks.
+ 
+Make
+ 
+sure
+ 
+you
+ 
+navigate
+ 
+to
+ 
+the
+ 
+“Segment ation
+ 
+Trackˮ
+ 
+section.
+ 
+ii.
+ 
+The
+ 
+dataset
+ 
+includes:
+ 
+■
+ 
+Pre-collect ed
+ 
+rgb
+ 
+color
+ 
+and
+ 
+segment ed
+ 
+images
+ 
+ 
+a.
+ 
+Separated
+ 
+into
+ 
+Train
+ 
+and
+ 
+Val
+ 
+folders
+ 
+■
+ 
+RGB
+ 
+color
+ 
+images
+ 
+in
+ 
+the
+ 
+testImages
+ 
+folder,
+ 
+to
+ 
+evaluate
+ 
+how
+ 
+well
+ 
+your
+ 
+model
+ 
+performs
+ 
+on
+ 
+unseen
+ 
+images
+ 
+■
+ 
+Sample
+ 
+train
+ 
+and
+ 
+test
+ 
+scripts
+ 
+■
+ 
+Environment
+ 
+setup
+ 
+scripts
+ 
+7
+ 
+
+--- Page 8 ---
+ 
+■
+ 
+A
+ 
+script
+ 
+to
+ 
+visualize
+ 
+the
+ 
+segment ation
+ 
+using
+ 
+high-contrast
+ 
+colors
+ 
+ 
+3 .
+ 
+Set
+ 
+Up
+ 
+t he
+ 
+T r aining
+ 
+En vir onment
+ 
+a.
+ 
+Make
+ 
+sure
+ 
+you
+ 
+have
+ 
+Miniconda
+ 
+or
+ 
+Anaconda
+ 
+installed,
+ 
+and
+ 
+open
+ 
+an
+ 
+Anaconda
+ 
+Prompt
+ 
+window
+ 
+b.
+ 
+Navigate
+ 
+to
+ 
+the
+ 
+ENV_SETUP
+ 
+sub
+ 
+folder
+ 
+ 
+c.
+ 
+Run
+ 
+the
+ 
+setup_en v.bat
+ 
+file
+ 
+in
+ 
+the
+ 
+Anaconda
+ 
+Prompt
+ 
+window
+ 
+ 
+i.
+ 
+This
+ 
+will
+ 
+set
+ 
+up
+ 
+an
+ 
+environment
+ 
+called
+ 
+“EDUˮ,
+ 
+containing
+ 
+all
+ 
+the
+ 
+dependencies
+ 
+required
+ 
+to
+ 
+run
+ 
+the
+ 
+training
+ 
+and
+ 
+test
+ 
+scripts.
+ 
+NO TE
+-
+ 
+Mac/Linux
+ 
+users,
+ 
+Cr e at e
+ 
+a
+ 
+setup_en v .sh
+ 
+scr ipt
+ 
+wit h
+ 
+equiv alent
+ 
+commands
+ 
+ 
+4 .
+ 
+Underst and
+ 
+t he
+ 
+T r aining
+ 
+W or kflo w
+ 
+For
+ 
+these
+ 
+synthetic
+ 
+data
+ 
+competitions,
+ 
+the
+ 
+workflow
+ 
+varies
+ 
+from
+ 
+the
+ 
+traditional
+ 
+workflows:
+ 
+a.
+ 
+train.py
+ 
+will
+ 
+train
+ 
+your
+ 
+model
+ 
+using
+ 
+the
+ 
+train
+ 
+and
+ 
+val
+ 
+images.
+ 
+The
+ 
+results
+ 
+of
+ 
+this
+ 
+step
+ 
+are
+ 
+important,
+ 
+but
+ 
+you
+ 
+will
+ 
+not
+ 
+know
+ 
+how
+ 
+robust
+ 
+your
+ 
+model
+ 
+is
+ 
+until
+ 
+you
+ 
+test
+ 
+it
+ 
+using
+ 
+unseen
+ 
+images.
+ 
+b.
+ 
+test.py
+ 
+will
+ 
+test
+ 
+the
+ 
+model
+ 
+against
+ 
+images
+ 
+it
+ 
+HASNʼT
+ 
+seen
+ 
+in
+ 
+training.
+ 
+The
+ 
+test
+ 
+images
+ 
+will
+ 
+be
+ 
+the
+ 
+same
+ 
+biome,
+ 
+but
+ 
+the
+ 
+actual
+ 
+location
+ 
+will
+ 
+be
+ 
+different.
+ 
+ 
+5 .
+ 
+T r ain
+ 
+t he
+ 
+Model
+ 
+( of
+ 
+y our
+ 
+choice )
+ 
+on
+ 
+t he
+ 
+Sample
+ 
+Dat aset
+ 
+Once
+ 
+the
+ 
+EDU
+ 
+environment
+ 
+is
+ 
+ready
+ 
+and
+ 
+the
+ 
+dataset
+ 
+is
+ 
+in
+ 
+place:
+ 
+a.
+ 
+Open
+ 
+an
+ 
+anaconda
+ 
+command
+ 
+prompt
+ 
+or
+ 
+a
+ 
+terminal
+ 
+ 
+b.
+ 
+Navigate
+ 
+to
+ 
+the
+ 
+training
+ 
+and
+ 
+test
+ 
+scripts
+ 
+directory
+ 
+c.
+ 
+Activate
+ 
+the
+ 
+environment
+ 
+by
+ 
+typing
+ 
+‘
+conda
+ 
+activ at e
+ 
+EDU
+ʼ
+ 
+in
+ 
+the
+ 
+terminal.
+ 
+d.
+ 
+Run
+ 
+the
+ 
+training
+ 
+command:
+ 
+‘
+p y thon
+ 
+tr ain.p y
+‘
+ 
+This
+ 
+will
+ 
+begin
+ 
+training
+ 
+your
+ 
+model
+ 
+and
+ 
+save
+ 
+logs
+ 
++
+ 
+checkpoint s
+ 
+to
+ 
+the
+ 
+runs/
+ 
+directory.
+ 
+8
+ 
+
+--- Page 9 ---
+ 
+ 
+6 .
+ 
+Est ablish
+ 
+Benchmar k
+ 
+R esul t s
+ 
+on
+ 
+t he
+ 
+sample
+ 
+dat aset
+ 
+After
+ 
+training
+ 
+is
+ 
+complet ed,
+ 
+evaluate
+ 
+your
+ 
+modelʼs
+ 
+performance
+ 
+by
+ 
+running
+ 
+the
+ 
+train
+ 
+script
+ 
+(train.py)
+ 
+in
+ 
+the
+ 
+same
+ 
+command
+ 
+prompt
+ 
+window.
+ 
+This
+ 
+tests
+ 
+its
+ 
+performance
+ 
+on
+ 
+real-world
+ 
+test
+ 
+images
+ 
+and
+ 
+gives
+ 
+you
+ 
+the
+ 
+following:
+ 
+a.
+ 
+Predictions
+ 
+b.
+ 
+Loss
+ 
+metrics
+ 
+c.
+ 
+IoU
+ 
+score
+ 
+ 
+Use
+ 
+the
+ 
+results
+ 
+as
+ 
+your
+ 
+benchmar k,
+ 
+so
+ 
+that
+ 
+later,
+ 
+when
+ 
+you
+ 
+train
+ 
+with
+ 
+newer
+ 
+model
+ 
+settings,
+ 
+you
+ 
+can:
+ 
+●
+ 
+Compare
+ 
+performance
+ 
+●
+ 
+Track
+ 
+improvements
+ 
+●
+ 
+Identify
+ 
+where
+ 
+the
+ 
+model
+ 
+struggled
+ 
+(e.g.,
+ 
+specific
+ 
+classes,
+ 
+specific
+ 
+locations)
+ 
+ 
+ 
+ 
+i i .
+ 
+D o c u m e n t a t i o n
+ 
+&
+ 
+P r e s e n t a t i o n :
+ 
+ 
+Ensure
+ 
+that
+ 
+your
+ 
+teamʼs
+ 
+work
+ 
+is:
+ 
+ 
+✔
+ 
+Clear
+ 
+and
+ 
+understandable
+ 
+✔
+ 
+Reproducible
+ 
+by
+ 
+others
+ 
+✔
+ 
+Professional
+ 
+and
+ 
+impactful
+ 
+for
+ 
+judges
+ 
+1.
+ 
+K eep
+ 
+it
+ 
+Structur ed
+ 
+&
+ 
+Or ganiz ed
+ 
+using
+ 
+t his
+ 
+Gener al
+ 
+Structur e
+ 
+a.
+ 
+Tit le
+ 
+&
+ 
+Summar y:
+ 
+Clearly
+ 
+state
+ 
+the
+ 
+purpose
+ 
+of
+ 
+the
+ 
+document.
+ 
+b.
+ 
+St ep-b y -St ep
+ 
+Instructions:
+ 
+Use
+ 
+numbered
+ 
+lists
+ 
+or
+ 
+bullet
+ 
+points.
+ 
+c.
+ 
+Diagr ams
+ 
+&
+ 
+Visuals:
+ 
+Use
+ 
+flowcharts,
+ 
+tables,
+ 
+and
+ 
+screenshot s
+ 
+ 
+d.
+ 
+Gr aphs
+ 
+&
+ 
+Char t s
+:
+ 
+Show
+ 
+training
+ 
+loss,
+ 
+accurac y
+ 
+trends,
+ 
+and
+ 
+comparisons.
+ 
+9
+ 
+
+--- Page 10 ---
+ 
+i.
+ 
+Scr eenshot s:
+ 
+Use
+ 
+images
+ 
+from
+ 
+the
+ 
+runs/
+ 
+folder
+ 
+after
+ 
+training
+ 
+ii.
+ 
+Bef or e
+ 
+&
+ 
+A f t er
+ 
+Images:
+ 
+Show
+ 
+examples
+ 
+of
+ 
+correct
+ 
+vs.
+ 
+misclassified
+ 
+objects.
+ 
+ 
+2.
+ 
+Document
+ 
+Ev er y t hing,
+ 
+But
+ 
+K eep
+ 
+it
+ 
+Concise
+ 
+a.
+ 
+Record
+ 
+major
+ 
+steps
+ 
+like
+ 
+dataset
+ 
+manipulation,
+ 
+training
+ 
+process,
+ 
+and
+ 
+evaluation.
+ 
+b.
+ 
+Avoid
+ 
+overly
+ 
+technical
+ 
+language
+ 
+—
+ 
+aim
+ 
+for
+ 
+clarity.
+ 
+c.
+ 
+Use
+ 
+clear,
+ 
+plain
+ 
+language—assume
+ 
+the
+ 
+reader
+ 
+is
+ 
+new
+ 
+to
+ 
+the
+ 
+project.
+ 
+ 
+3 .
+ 
+Ex ample
+ 
+Entr y:
+ 
+a.
+ 
+T ask:
+ 
+Model
+ 
+Training
+ 
+on
+ 
+Dataset
+ 
+b.
+ 
+Initial
+ 
+IoU
+ 
+Scor e:
+ 
+0.31
+ 
+c.
+ 
+Issue
+ 
+F aced:
+ 
+Low
+ 
+recall
+ 
+for
+ 
+"Logs"
+ 
+class
+ 
+due
+ 
+to
+ 
+occlusion.
+ 
+d.
+ 
+Solution:
+ 
+Augment ed
+ 
+dataset
+ 
+with
+ 
+occlusion
+ 
+examples
+ 
+→
+ 
+Ne w ,
+ 
+bet t er
+ 
+scor e
+ 
+ 
+4 .
+ 
+Documenting
+ 
+F ailur e
+ 
+Cases
+ 
+and
+ 
+Solutions
+ 
+a.
+ 
+Include
+ 
+failure
+ 
+case
+ 
+images
+ 
+to
+ 
+illustrate
+ 
+what
+ 
+went
+ 
+wrong
+ 
+and
+ 
+how
+ 
+it
+ 
+was
+ 
+fixed.
+ 
+ 
+5 .
+ 
+R epor t
+ 
+F or mat
+ 
+8
+ 
+P ages
+ 
+Max)
+ 
+ 
+Your
+ 
+Report
+ 
+should
+ 
+be
+ 
+concise,
+ 
+structured,
+ 
+and
+ 
+visually
+ 
+engaging.
+ 
+Use
+ 
+the
+ 
+following
+ 
+storytelling
+ 
+approach:
+ 
+ 
+ 
+P r o b l e m
+ 
+→
+ 
+F i x →
+ 
+R e s u l t s
+ 
+→
+ 
+C h a l l e n g e s
+ 
+→
+ 
+F u t u r e
+ 
+W o r k
+ 
+ 
+P a g e . N o
+ 
+S e c t i o n
+ 
+D e s c r i p t i o n
+ 
+1
+ 
+Title
+ 
+ 
+Team
+ 
+name,
+ 
+project
+ 
+name,
+ 
+brief
+ 
+tagline.
+ 
+10
+ 
+
+--- Page 11 ---
+ 
+2
+ 
+Methodology
+ 
+Steps
+ 
+taken
+ 
+while
+  
+training
+ 
+the
+ 
+model,
+ 
+and
+ 
+fine-tuned
+ 
+results.
+ 
+ 
+34
+ 
+Results
+ 
+&
+ 
+Performance
+ 
+Metrics
+ 
+IoU
+ 
+score,
+ 
+confusion
+ 
+matrix,
+ 
+accuracy
+ 
+comparisons.
+ 
+ 
+56
+ 
+Challenges
+ 
+&
+ 
+Solutions
+ 
+Key
+ 
+obstacles
+ 
+and
+ 
+how
+ 
+they
+ 
+were
+ 
+resolved.
+ 
+ 
+7
+ 
+Conclusion
+ 
+&
+ 
+Future
+ 
+Work
+ 
+Final
+ 
+thoughts,
+ 
+and
+ 
+potential
+ 
+improvements.
+ 
+ 
+ 
+ 
+ 
+3 .
+ 
+S u b m i s s i o n
+ 
+a n d
+ 
+F i n a l
+ 
+S t e p s
+ 
+I n s t r u c t i o n s
+ 
+ 
+i .
+  
+N e c e s s a r y
+ 
+S u b m i s s i o n
+ 
+F i l e s :
+ 
+ 
+●
+ 
+ 
+A
+ 
+single,
+ 
+Final
+ 
+P ackaged
+ 
+F older
+ 
+that
+ 
+includes
+ 
+all
+ 
+necessar y
+ 
+files:
+ 
+ 
+Model
+ 
+training
+ 
+and
+ 
+inference
+ 
+scripts
+ 
+(train.py,
+ 
+test.py)
+ 
+ 
+configuration
+ 
+files
+ 
+ 
+Any
+ 
+additional
+ 
+assets
+ 
+or
+ 
+scripts
+ 
+required
+ 
+to
+ 
+test
+ 
+your
+ 
+model
+ 
+ 
+●
+ 
+A
+ 
+well-structur ed
+ 
+ 
+Hackat hon
+ 
+R epor t
+ 
+PDF
+ 
+or
+ 
+DOC X
+ 
+that
+ 
+covers
+ 
+the
+ 
+following:
+ 
+ 
+Methodology:
+ 
+Your
+ 
+training
+ 
+approach
+ 
+and
+ 
+setup
+ 
+ 
+Challenges
+ 
+&
+ 
+Solutions:
+ 
+Issues
+ 
+faced
+ 
+and
+ 
+how
+ 
+you
+ 
+overcame
+ 
+them
+ 
+ 
+Optimizations:
+ 
+Techniques
+ 
+used
+ 
+to
+ 
+improve
+ 
+model
+ 
+performance
+ 
+11
+ 
+
+--- Page 12 ---
+ 
+ 
+Performance
+ 
+Evaluation:
+ 
+IoU
+ 
+score
+ 
+and
+ 
+Failure
+ 
+case
+ 
+analysis
+ 
+and
+ 
+observations.
+ 
+ 
+●
+ 
+ 
+A
+ 
+README.md
+ 
+or
+ 
+README.tx t
+ 
+that
+ 
+provides:
+ 
+ 
+Step-by-step
+ 
+instructions
+ 
+to
+ 
+run
+ 
+and
+ 
+test
+ 
+your
+ 
+model
+ 
+ 
+How
+ 
+to
+ 
+reproduce
+ 
+your
+ 
+final
+ 
+results
+ 
+ 
+Any
+ 
+environment
+ 
+or
+ 
+dependenc y
+ 
+requirements
+ 
+ 
+Notes
+ 
+on
+ 
+expected
+ 
+outputs
+ 
+and
+ 
+how
+ 
+to
+ 
+interpret
+ 
+them
+ 
+ 
+ 
+Not e:
+ 
+You
+ 
+are
+ 
+welcome
+ 
+to
+ 
+use
+ 
+your
+ 
+own
+ 
+models
+ 
+and
+ 
+custom
+ 
+training
+ 
+scripts
+ 
+or
+ 
+notebooks.
+ 
+However,
+ 
+you
+ 
+must
+ 
+train
+ 
+your
+ 
+model
+ 
+exclusively
+ 
+on
+ 
+the
+ 
+dataset
+ 
+provided
+ 
+for
+ 
+this
+ 
+challenge.
+ 
+ 
+Impor t ant:
+ 
+Using
+ 
+any
+ 
+of
+ 
+the
+ 
+designat ed
+ 
+testing
+ 
+images
+ 
+for
+ 
+training
+ 
+purposes
+ 
+is
+ 
+strictly
+ 
+prohibited
+ 
+and
+ 
+will
+ 
+result
+ 
+in
+ 
+disqualific ation.
+ 
+Please
+ 
+ensure
+ 
+a
+ 
+clear
+ 
+separation
+ 
+between
+ 
+training,
+ 
+validation,
+ 
+and
+ 
+test
+ 
+sets
+ 
+throughout
+ 
+your
+ 
+workflow.
+ 
+ 
+i i .
+ 
+U p l o a d
+ 
+I n s t r u c t i o n s :
+ 
+ 
+1.
+ 
+Ensure
+ 
+your
+ 
+submission
+ 
+folder
+ 
+contains
+ 
+all
+ 
+of
+ 
+the
+ 
+above
+ 
+2.
+ 
+Compress
+ 
+everything
+ 
+into
+ 
+a
+ 
+.zip
+ 
+file.
+ 
+3.
+ 
+Upload
+ 
+the
+ 
+zipped
+ 
+folder
+ 
+to
+ 
+a
+ 
+private
+ 
+GitHub
+ 
+repository
+ 
+of
+ 
+your
+ 
+own.
+ 
+4 .
+ 
+Complet e
+ 
+t he
+ 
+submission
+ 
+f or m
+ 
+(see
+ 
+t he
+ 
+“Impor t ant
+ 
+Linksˮ
+ 
+section)
+ 
+:
+ 
+ 
+a.
+ 
+Reporting
+ 
+your
+ 
+teamʼs
+ 
+final
+ 
+score
+ 
+b.
+ 
+Providing
+ 
+the
+ 
+GitHub
+ 
+repository
+ 
+link
+ 
+5.
+ 
+Finally,
+ 
+add
+ 
+the
+ 
+following
+ 
+reviewers
+ 
+as
+ 
+collaborat ors:
+ 
+a.
+ 
+Syed
+ 
+Muhammad
+ 
+Maaz
+ 
+ 
+i.
+ 
+GitHub
+ 
+Username
+ 
+-
+ 
+Maazsyedm
+ 
+b.
+ 
+Rebekah
+ 
+Bogdanof f
+ 
+i.
+ 
+GitHub
+ 
+Username
+ 
+-
+ 
+rebekah-bogdanof f
+ 
+12
+ 
+
+--- Page 13 ---
+ 
+c.
+ 
+Evan
+ 
+Goldman
+ 
+i.
+ 
+GitHub
+ 
+Username
+ 
+-
+ 
+egold010
+ 
+ 
+ 
+i i i .
+ 
+A f t e r
+ 
+S u b m i s s i o n :
+ 
+ 
+1.
+ 
+ 
+Sharing
+ 
+Results
+ 
+&
+ 
+Feedback
+ 
+a.
+ 
+After
+ 
+submission,
+ 
+teams
+ 
+can
+ 
+showcase
+ 
+their
+ 
+models
+ 
+and
+ 
+insights.
+ 
+b.
+ 
+Feedback
+ 
+from
+ 
+judges
+ 
+will
+ 
+be
+ 
+provided
+ 
+after
+ 
+evaluation.
+ 
+ 
+2.
+ 
+Future
+ 
+Opportunities
+ 
+&
+ 
+Improvements
+ 
+a.
+ 
+Continue
+ 
+exploring
+ 
+advanced
+ 
+topics
+ 
+such
+ 
+as:
+ 
+ 
+i.
+ 
+Self-supervised
+ 
+learning
+ 
+ 
+ii.
+ 
+Domain
+ 
+adaptation
+ 
+iii.
+ 
+Multi-view
+ 
+detection
+ 
+ 
+3.
+ 
+Stay
+ 
+connect ed
+ 
+with
+ 
+us
+ 
+via
+ 
+Discord
+ 
+for:
+ 
+a.
+ 
+Future
+ 
+challenges
+ 
+ 
+b.
+ 
+Internship
+ 
+and
+ 
+apprenticeship
+ 
+opportunities
+ 
+c.
+ 
+Communit y
+ 
+events
+ 
+and
+ 
+AI
+ 
+workshops
+ 
+ 
+NO TE
+ 
+If
+ 
+you
+ 
+face
+ 
+any
+ 
+issues
+ 
+along
+ 
+the
+ 
+process
+ 
+join
+ 
+our
+ 
+discord
+ 
+channel
+ 
+linked
+ 
+above
+ 
+where
+ 
+we
+ 
+will
+ 
+be
+ 
+providing
+ 
+support
+ 
+to
+ 
+you
+ 
+for
+ 
+the
+ 
+hackathon.
+ 
+ 
+ 
+4 .
+ 
+C o m m o n
+ 
+I s s u e s
+ 
+a n d
+ 
+T r o u b l e s h o o t i n g
+ 
+ 
+F A Q ʼ s
+ 
+1.
+ 
+Will
+ 
+setup_en v .b at
+ 
+W or k
+ 
+on
+ 
+Bot h
+ 
+Windo ws
+ 
+&
+ 
+Mac?
+ 
+○
+ 
+No,
+ 
+The
+ 
+setup_en v.bat
+ 
+script
+ 
+is
+ 
+designed
+ 
+primarily
+ 
+for
+ 
+Windo ws
+ 
+environments.
+ 
+13
+ 
+
+--- Page 14 ---
+ 
+○
+ 
+Alternatively,
+ 
+for
+ 
+Mac/Linux
+ 
+use
+ 
+create
+ 
+a
+ 
+setup_en v.sh
+ 
+shell
+ 
+script
+ 
+equivalent
+ 
+that
+ 
+installs
+ 
+all
+ 
+required
+ 
+packages.
+ 
+2.
+ 
+M y
+ 
+tr aining
+ 
+pr ocess
+ 
+is
+ 
+t oo
+ 
+slo w .
+ 
+What
+ 
+c an
+ 
+I
+ 
+do?
+ 
+○
+ 
+Here
+ 
+are
+ 
+a
+ 
+few
+ 
+tips
+ 
+to
+ 
+improve
+ 
+training
+ 
+speed:
+ 
+i.
+ 
+Reduce
+ 
+the
+ 
+batch
+ 
+size
+ 
+in
+ 
+your
+ 
+training
+ 
+configuration.
+ 
+ii.
+ 
+Close
+ 
+any
+ 
+unused
+ 
+applications
+ 
+or
+ 
+background
+ 
+processes
+ 
+to
+ 
+free
+ 
+up
+ 
+system
+ 
+resources.
+ 
+iii.
+ 
+If
+ 
+using
+ 
+GPU,
+ 
+monitor
+ 
+GPU
+ 
+usage
+ 
+with
+ 
+tools
+ 
+like
+ 
+nvidia-smi.
+ 
+3.
+ 
+Ho w
+ 
+should
+ 
+I
+ 
+manage
+ 
+dat a
+ 
+tr ansf er
+ 
+bet w een
+ 
+t e am
+ 
+members
+ 
+or
+ 
+f or
+ 
+submission?
+ 
+○
+ 
+Why
+ 
+backup
+ 
+your
+ 
+data:
+ 
+i.
+ 
+Share
+ 
+results
+ 
+between
+ 
+teammates
+ 
+ii.
+ 
+Backup
+ 
+project
+ 
+files
+ 
+and
+ 
+checkpoint s
+ 
+○
+ 
+We
+ 
+recommend
+ 
+using
+ 
+cloud
+ 
+storage
+ 
+platforms
+ 
+such
+ 
+as
+ 
+Google
+ 
+Drive,
+ 
+Dropbox,
+ 
+OneDrive,
+ 
+git
+ 
+ 
+S u p p o r t
+ 
+a n d
+ 
+C o m m u n i c a t i o n
+ 
+1.
+ 
+Join
+ 
+t he
+ 
+of f icial
+ 
+Dualit y
+ 
+Communit y
+ 
+Discor d
+ 
+Ser v er
+ 
+f or:
+ 
+a.
+ 
+Real-time
+ 
+help
+ 
+b.
+ 
+Announcement s
+ 
+c.
+ 
+Live
+ 
+Q&A
+ 
+with
+ 
+organizers
+ 
+d.
+ 
+Invite
+ 
+Link
+ 
+Here
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+5 .
+  
+G l o s s a r y
+ 
+a n d
+ 
+M e t r i c
+ 
+B e n c h m a r k s
+ 
+ 
+14
+ 
+
+--- Page 15 ---
+ 
+T er m
+ 
+Def inition
+ 
+Digital
+ 
+Twin
+ 
+A
+ 
+virtual
+ 
+replica
+ 
+of
+ 
+a
+ 
+real-world
+ 
+object
+ 
+or
+ 
+system.
+ 
+Semantic
+ 
+Scene
+ 
+Segment ation
+ 
+Every
+ 
+pixel
+ 
+in
+ 
+an
+ 
+image
+ 
+is
+ 
+labeled
+ 
+with
+ 
+a
+ 
+specific
+ 
+class.
+ 
+IoU
+ 
+Intersection
+ 
+over
+ 
+Union)
+ 
+Measures
+ 
+how
+ 
+well
+ 
+a
+ 
+prediction
+ 
+from
+ 
+a
+ 
+model
+ 
+overlaps
+ 
+with
+ 
+the
+ 
+ground
+ 
+truth.
+ 
+NMS
+ 
+Non-Maximum
+ 
+Suppression)
+ 
+A
+ 
+technique
+ 
+to
+ 
+remove
+ 
+duplicate
+ 
+detections
+ 
+of
+ 
+the
+ 
+same
+ 
+object.
+ 
+Class
+ 
+Imbalance
+ 
+When
+ 
+some
+ 
+object
+ 
+categories
+ 
+have
+ 
+significantly
+ 
+fewer
+ 
+samples
+ 
+than
+ 
+others.
+ 
+Ground
+ 
+Truth
+ 
+Manually
+ 
+labeled
+ 
+data
+ 
+specifying
+ 
+correct
+ 
+object
+ 
+locations
+ 
+and
+ 
+classes.
+ 
+Training
+ 
+Loss
+ 
+Lower
+ 
+loss
+ 
+=
+ 
+better
+ 
+training.
+ 
+ 
+If
+ 
+loss
+ 
+plateaus
+ 
+too
+ 
+high,
+ 
+the
+ 
+model
+ 
+may
+ 
+be
+ 
+underfitting.
+ 
+If
+ 
+the
+ 
+loss
+ 
+starts
+ 
+increasing,
+ 
+the
+ 
+model
+ 
+may
+ 
+be
+ 
+overfitting
+ 
+ 
+Expected
+ 
+Benchmar k:
+ 
+Should
+ 
+steadily
+ 
+decrease
+ 
+Inference
+ 
+Speed
+ 
+Time
+ 
+taken
+ 
+to
+ 
+predict
+ 
+per
+ 
+image
+ 
+ 
+Expected
+ 
+Benchmar k:
+ 
+<
+ 
+50ms
+ 
+per
+ 
+image
+ 
+ 
+W e
+ 
+appr eciat e
+ 
+y our
+ 
+har d
+ 
+w or k
+ 
+and
+ 
+look
+ 
+f or w ar d
+ 
+t o
+ 
+r e vie wing
+ 
+y our
+ 
+pr oject!
+ 
+ 
+F eel
+ 
+fr ee
+ 
+t o
+ 
+shar e
+ 
+y our
+ 
+w or k
+ 
+on
+ 
+Link edIn
+ 
+and
+ 
+sho w
+ 
+t he
+ 
+w or ld
+ 
+y our
+ 
+r e al-w or ld
+ 
+pr oblem
+ 
+sol ving
+ 
+skills
+ 
+in
+ 
+action!
+ 
+ 
+Tag
+ 
+DualityAI
+ 
+to:
+ 
+●
+ 
+Celebrat e
+ 
+your
+ 
+teamʼs
+ 
+efforts
+ 
+and
+ 
+creativity.
+ 
+●
+ 
+Get
+ 
+noticed
+ 
+by
+ 
+industry
+ 
+experts
+ 
+and
+ 
+recruiters
+ 
+15
+ 
+
+--- Page 16 ---
+ 
+ 
+—
+ 
+The
+ 
+Duality
+ 
+AI
+ 
+Team
+ 
+ 
+ 
+ 
+16
+ 
+
+
+================================================================================
+FILE: Hack For Green Bharat Problem Statement.pdf
+================================================================================
+--- Page 1 ---
+ 
+Hack For Green Bharat Hackathon Problem 
+Statement   
+1. Pathway Overview  
+  
+Pathway builds the first post -transformer frontier model that solves AI’s fundamental memory problem. 
+While transformers wake up in the same state every time —like Groundhog Day —our architecture 
+enables true continuous learning, infinite -context reasoning, and real -time adaptation. We’re not 
+optimizing yesterday’s technology; we’re building what comes after transformers.  
+A Python -based framework for real -time AI pipelines – it is designed to ingest data streams from more 
+than 300 sources, process them on th e fly, and make the results queryable with large -language models  
+(LLMs). It provides connectors for files, databases, message queues and enterprise services, 
+automatically detects new records and updates, chunks and embeds documents, and maintains a live 
+vector index.  
+Unlike most retrieval -augmented generation (RAG) stacks that rely on external vector databases, 
+Pathway’s Document Store keeps the vector index inside the pipeline. It combines semantic similarity 
+search with BM15 full -text search to return relevant documents and is automatically synchronised with 
+data sources. This live indexing avoids the need to re -ingest data in batches and allows generative 
+models to answer queries using the latest information.  
+Pathway’s streaming engine also supports b uilding microservices and complex data transforms, as 
+demonstrated by La Poste’s postal -logistics microservices that process 16 million GPS points each year to 
+predict truck arrival times and generate anomaly alerts; the project cut the operating cost of t he IoT 
+                                                           
+1 . Key Ideas Behind Real -Time AI and RAG  
+• Real -Time vs Batch Processing  
+Traditional batch systems process data periodically; this introduces delays and stale information. Real -
+time streaming ingests, processes and outputs data within milliseconds, enabling decision -makers to 
+react quickly and avoid outdated insights. Logistics , finance and manufacturing all require fast reaction to 
+events; real -time streaming is therefore a competitive differentiator.  
+--- Page 2 ---
+ 
+platform by 50% and reduced future capital expenditures. These features make Pathway suitable for 
+industry -level applications where information is constantly changing and decisions must be made 
+quickly.  
+  
+• Freshness of Indexes  
+LLMs do not have an  inherent sense of time. To answer queries using up -to-date information, RAG 
+systems must ensure their indexes stay synchronised with external data. Pathway’s Document Store 
+continuously parses, chunks, embeds and indexes documents as they arrive and remov es deleted 
+documents automatically. This is different from vector databases that must be re -ingested periodically or 
+from architectures where retrieval logic is locked into the DB.  
+• Event -Driven Architecture  
+Modern AI agents require access to consistent , real -time data. Event -driven architectures (EDA), often 
+powered by message brokers such as Apache Kafka and stream processors like Flink, provide exactly -
+once semantics and scalable throughput; they are the backbone of agentic AI. Without high -integrity 
+streaming data, autonomous agents may act on stale or inconsistent information.  
+• Benefits of Data Streaming  
+Continuous streaming allows businesses to react swiftly to changes, trends and anomalies, leading to 
+better customer experiences, optimized opera tions and proactive issue resolution. Streaming also 
+automates processes, reduces human error and supports cost -efficient operations.  
+  
+ 
+3. Use -Case Themes in IoT, Logistics and Manufacturing  
+1. Real -Time Supply -Chain Visibility and ETA Predictions  
+In transport and logistics, vehicles and containers emit streams of GPS coordinates, temperature and 
+load -status signals. Combining these with order data and traffic/weather feeds allows continuous 
+estimation of arrival times and detection of anomalies (e. g., deviations from route or temperature 
+excursions).  
+--- Page 3 ---
+ 
+La Poste built such a system with Pathway; microservices ingest GPS events from Kafka, filter invalid data 
+(e.g., (0,0) coordinates) and join the streams with historical routes to compute ETAs and send  alerts. 
+Pathway’s connectors and streaming engine made it possible to decouple data preparation and 
+prediction into separate microservices, scaling independently. Similar ETAs can be built for public 
+transport, ride -sharing or shipping companies.  
+2. Pred ictive Maintenance for Industrial Equipment  
+Manufacturing facilities often deploy sensors that emit temperature, vibration and pressure readings. A 
+real-time pipeline can ingest these readings via Kafka or MQTT, engineer features (e.g., rolling means, 
+frequency spectrum), and feed them into ML models to predict failures and schedule maintenance.  
+An example architecture described on Medium uses Kafka for ingestion, Flink for feature engineering, 
+and a model server to estimate failure probability; a dashboa rd triggers alerts. Pathway can implement 
+the same pattern with simplified code using its stateful streaming engine and built -in connectors, while 
+the Document Store can index historical maintenance logs and technical manuals to answer 
+maintenance -technici an queries.  
+3. Asset Utilisation and Warehouse Automation  
+IoT sensors on forklifts, pallets and robots produce continuous location and state data. By streaming 
+these signals into Pathway and combining them with ERP and order management systems, companies  
+can compute utilisation metrics, optimise routing of AGVs or robots, and detect bottlenecks.  
+Real -time tracking improves transparency by allowing personnel to track products’ location and 
+temperature in real time and to send alerts when shipments deviate  from the route. IoT enables storage 
+monitoring (temperature, humidity), contingency planning (rerouting during traffic or weather 
+disruptions) and accurate inventory control. These capabilities align with Pathway’s connectors (e.g., 
+MQTT, OPC -UA, SQL) and  streaming analytics.  
+4. Smart Warehouses and Robotics  
+Automated guided vehicles (AGVs), robotic picking and packing systems and RFID -enabled inventory 
+management produce high -frequency events. Real -time data streaming helps coordinate these 
+subsystems. AGVs transport materials, robotic pickers fulfill orders and RFID sensors track stock levels. 
+Pathway can ingest streams from AGVs, update the system state, compute optimal dispatch schedules, 
+and interface with the Document Store to provide instructions o r troubleshooting steps.  
+  
+ 
+--- Page 4 ---
+ 
+4. Use -Case Themes in Financial Services  
+1. Real -Time Market Analytics and Risk Management  
+Streaming ETL is essential for processing tick -by-tick market data, computing option Greeks and other 
+risk metrics. Pathway ingests h istorical and live CME market data and continuously computes Delta, 
+Gamma, Theta, Vega and Rho using the Black -76 model. The pipeline updates values in real time, making 
+it suitable for traders who need live exposures.  
+2. Real -Time Fraud Detection  
+Financ ial transactions arrive at high volume and require responses within milliseconds to ensure 
+seamless user experience. Traditional rule -based fraud systems fail to detect complex patterns; AI -based 
+models analysing vast data streams are more effective.  
+A fraud-detection architecture commonly used publishes transactions to Kafka, consumes them with a 
+specialized service integrated with a TensorFlow model, classifies transactions as fraudulent or 
+legitimate, and logs them for auditing. Features such as transac tion amount and hour of day help flag 
+suspicious patterns. Pathway can implement similar pipelines; its streaming engine offers exactly -once 
+semantics, while the Document Store can hold regulatory policies, sanction lists and previous cases.  
+3. Streaming Log Analysis and Anomaly Detection  
+System logs are a treasure trove of operational information but are often analysed after incidents. A 
+pipeline can analyse logs in real time, identify anomalies and alert administrators before problems 
+escalate. Logs var y widely across applications, making schema -flexible streaming essential. Pathway can 
+ingest log streams, apply natural -language models to classify log messages, detect anomalies or root 
+causes, and use the Document Store to index runbooks and remediation guides.  
+4. RAG -Driven Personal Finance Assistants  
+A GenAI assistant for banking can combine streaming events (transactions, budget updates) with 
+knowledge of financial products, compliance rules and customer documents. Using Pathway, one could 
+stream account events, compute embeddings of transaction narra tives, store them in the Document 
+Store, and integrate with an LLM to answer questions such as “How much did I spend on groceries this 
+month?” or “Is there unusual activity on my account?” while maintaining compliance.  
+5. Regulatory Compliance and Documen t Analysis  
+Financial institutions must process large volumes of legal texts, policies and customer communications. 
+Pathway’s connectors can ingest documents from SharePoint, Google Drive or file servers, index them in 
+--- Page 5 ---
+ 
+the Document Store, and continuously update the index when policies change. Combining this with 
+streaming events allows compliance teams to ask an LLM: “Does this transaction violate the latest AML 
+rule?” and obtain an answer with citations.  
+  
+ 
+5. Potential Application Ideas Using Pathway  
+● Multi -Source RAG Agent  
+● RAG + ML for Dynamic Pricing  
+● AI-Assisted Dispatch and Route Optimisation  
+(All content preserved exactly as in the document.)  
+  
+? Developer Resources and Technical Requirements  
+To ensure your project demonstrates strong re al-time and production -readiness capabilities, all teams 
+must adhere to the following requirements and leverage the official Pathway developer ecosystem. 
+Exploit pathway to the max.  
+  
+ 
+1. Live Data Ingestion with Pathway Connectors  
+Your system must utilize Pathway’s real -time connectors  to ingest streaming data relevant to your 
+chosen use case.   
+Pathway provides built -in connectors for files, databases, message queues, APIs, and web sources , all 
+operating in streaming mode, ensuring results update in real time as data changes.   
+If your desired data source is not directly supported, you must extend Pathway’s ingestion layer by 
+implementing your own connector using the Custom Python Connector. This allows you to adapt 
+Pathway to new sou rces and contributes to enhancing the engine’s capabilities.  
+Documentation:  https://pathway.com/developers/user -guide/connect/connectors -in-pathway  
+Create a custom Python connector:  
+--- Page 6 ---
+ 
+https://pathway.com/developers/user -guide/connect/connectors/custom -python -connectors  
+Python web scraper example: https://pathway.com/developers/user -guide/connect/python -web -
+scraping   
+Artificial Data Streams with the demo Module (in case you find it di fficult to access free streaming data 
+APIs):   https://pathway.com/developers/user -guide/connect/artificial -streams    
+? At least one live or simulated data feed must b e integrated.  Examples 
+include:  
+● Subscribing to live market APIs (e.g., Alpha Vantage, Polygon.io)  
+● Reading transaction streams from Kafka or sockets  
+● Simulating live events via Pathway’s demo utilities  
+If live data is unavailable, teams may simulate stre aming input by replaying static datasets with realistic 
+time intervals.  
+  
+ 
+2. Core Concepts  
+Before starting development, familiarize yourself with Pathway’s foundational ideas and architecture.  
+These concepts will help you understand incremental computa tion, table semantics, and event -driven 
+design principles that power every Pathway pipeline.  
+Pathway Core Concepts — https://pathway.com/developers/user -guide/introduction/concepts/#core -
+concepts   
+  
+ 
+3. Streaming Transformations and Feature Engineering  
+All data transformations must be performed in streaming mode using Pathway’s transformation APIs.  
+Your pipeline should support:  
+● Incremental joins, filters, and aggregations  
+● Stateful window computations  
+● Real -time feature engineering for signals and indicators  
+--- Page 7 ---
+ 
+Documentation:  https://pathway.com/developers/user -guide/data -transformation/table -operations  
+Temporal Data Windows —  
+https://pathway.com/developers/user -guide/temporal -data/windows -manual   
+Ensure computations are low -latency and modular, with clear  separation between ingestion, 
+transformation, and output modules.  
+  
+ 
+4. LLM Integration for Real -Time Insights  
+To make your system interactive and human -centric, integrate Pathway’s LLM xPack  — enabling 
+smooth orchestration of retrieval, summarization, and reasoning over live data.  You may use it for:  
+● Live retrieval -augmented generation (RAG)  
+● Automated report generation  
+● Explainable insights (e.g., credit decision rationale, fraud summary reports)  
+Documentation:  https://pathway.com/developers/user -guide/llm -xpack/overview   
+Pathway MCP Server:  https://pathway.com/developers/user -guide/llm -xpack/pathway_mcp_server   
+  
+ 
+5. Mandatory Learning Resources and Templates  
+These resources will accelerate development and e nsure alignment with Pathway’s architecture.  
+Templates   
+RAG App Templates (YAML):  https://pathway.com/developers/templates/  
+ETL and ML Time -Series Pipelines (Live Data Framework): 
+https://pathway.com/developers/templates/?tab=live -data -framewo rk  
+Hands -On Tutorials   
+Vanilla RAG with OpenAI (Python): https://pathway.com/bootcamps/rag -and-llms/coursewor k/module -
+5-hands -on-development/1 -first-rag -pipeline/building -with -open -ai RAG with Gemini: 
+https://pathway.com/bootcamps/rag -and-llms/coursework/module -5-hands -on-development/1 -first-
+rag -pipeline/rag -with -gemini -and-other -open -ai-alternatives  Real -Time RAG using LlamaIndex: 
+https://pathway.com/bootcamps/rag -and-llms/coursework/module -5-hands -on-development/3 -
+--- Page 8 ---
+ 
+realtim e-rag-with -llamaindex -langchain -and-pathway/implementation -with -llamaindex  Real -Time RAG 
+using LangChain: https://pathway.com/bootcamps/rag -and-llms/coursework/module -5-hands -on-
+development/3 -realtim e-rag-with -llamaindex -langchain -and-pathway/implementation -with -langchain   
+Advanced Notebooks   
+Explore the step -by-step cookbooks demonstrating how to combine Pathway’s real -time indexing with 
+LangGraph multi -step age nt flows:   
+https://github.com/pathwaycom/llm -app/blob/main/cookbooks/self -rag-agents/pathway_deploy_langgr 
+aph_agents.ipynb   
+If you are only interested in using Pathway as an always up -to-date document store and want to deploy 
+your agents your own wa y (via Flask, FastAPI, etc.), then check out this cookbook:   
+https://github.com/pathwaycom/llm -app/blob/main/cookbooks/self -rag-agents/pathway_langgraph_ag 
+entic_rag.ipynb   
+Evaluation & Benchmarks   
+Evaluating RAG Applications with RAGAS — https://pathway.com/blog/evaluating -rag  
+Deployment   
+Docker Deployment Guide —  
+https://pathway.com/developers/user -guide/deployment/docker -deployment   
+Persis tence and Fault Tolerance — https://pathway.com/developers/user -guide/deployment/persist ence 
+Licensing Guide (For unlocking Advanced Features) — 
+https://pathway.com/developers/template s/licensing -guide   
+Reference Implementations   
+Option Greeks Computation with Databento —  
+https://pathway.com/developers/templates/etl/option -greeks/  Real -
+Time Multimodal Data Processing (Docling) — 
+https://pathway.com/blog/multimodal -data -processing   
+La Poste ETA Microservices Case Study — https://pathway.com/blog/p athway -laposte -microservices/  
+Pathway Community Spotlights — https://pathway.com/blog/?tag=community , 
+https://pathway.com/blog/ai -agents -finance -due-diligence/ , https://pat hway.com/blog/live -ai-multi -
+agentic -rag, https://pathway.com/blog/financial -intelligence -with -event -based -state -machine   
+   
+ 
+
