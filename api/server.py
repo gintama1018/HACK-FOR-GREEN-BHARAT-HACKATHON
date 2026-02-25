@@ -577,4 +577,6 @@ async def startup():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api.server:app", host=SERVER_HOST, port=SERVER_PORT, reload=False)
+    # Render provides PORT in the environment. Bind to it securely.
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("api.server:app", host="0.0.0.0", port=port, reload=False)

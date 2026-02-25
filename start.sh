@@ -67,5 +67,4 @@ cleanup() {
 }
 trap cleanup INT TERM
 
-PORT=${PORT:-8000}
-python -m uvicorn api.server:app --host 0.0.0.0 --port $PORT
+python api/server.py
