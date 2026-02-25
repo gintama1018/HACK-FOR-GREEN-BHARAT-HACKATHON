@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: infrawatch-nexus
+    env: docker
+    region: frankfurt
+    plan: free
+    branch: main
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: WX_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false

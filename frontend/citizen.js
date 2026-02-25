@@ -4,7 +4,8 @@
  */
 
 const API_BASE = window.location.origin;
-const WS_URL = `ws://${window.location.host}/ws`;
+const WS_SCHEME = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const WS_URL = `${WS_SCHEME}://${window.location.host}/ws`;
 
 let dashboard = null;
 let map = null;
