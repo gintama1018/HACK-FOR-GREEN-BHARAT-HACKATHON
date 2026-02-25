@@ -2,23 +2,35 @@
 InfraWatch Nexus — Settings & Thresholds
 =========================================
 Locked schema. No simulation parameters.
+All numeric thresholds hardcoded. No ambiguity.
 """
 
 # ══════════════════════════════════════════════════════════════════════════════
-# WASTE RISK WEIGHTS (Primary Focus — 70% of system)
+# DUSTBIN STATE THRESHOLDS (report-based, rolling window)
+# ══════════════════════════════════════════════════════════════════════════════
+DUSTBIN_STATE_THRESHOLDS = {
+    "Reported":  {"min_reports": 1},
+    "Escalated": {"min_reports": 3, "or_overflow_gte": 4},
+    "Critical":  {"min_reports": 5, "or_escalated_with_rain_gte": 10},
+    # Clear = 0 reports in window (default)
+    # Cleared = van collection event overrides everything
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# WASTE RISK WEIGHTS (Ward-Level Scoring)
 # ══════════════════════════════════════════════════════════════════════════════
 WASTE_RISK_WEIGHTS = {
-    "report_freq":       0.35,   # Report density in last 2 hours
+    "report_freq":       0.35,   # Report density in rolling window
     "overflow_severity": 0.30,   # Average overflow level (1–5)
     "collection_delay":  0.20,   # Hours since last van collection
     "rainfall":          0.15,   # Rain amplifies overflow risk
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ROAD RISK WEIGHTS (Secondary Focus — 30% of system)
+# ROAD RISK WEIGHTS (Ward-Level Road Scoring)
 # ══════════════════════════════════════════════════════════════════════════════
 ROAD_RISK_WEIGHTS = {
-    "report_density":    0.60,   # Issue report count in last 3 hours
+    "report_density":    0.60,   # Issue report count in rolling window
     "severity":          0.25,   # Average issue severity (1–5)
     "rainfall":          0.15,   # Rain worsens road conditions
 }
@@ -27,20 +39,20 @@ ROAD_RISK_WEIGHTS = {
 # NORMALIZATION THRESHOLDS (value at which factor = 1.0 / max risk)
 # ══════════════════════════════════════════════════════════════════════════════
 WASTE_NORM = {
-    "report_count_2hr":  8,      # 8+ reports in 2 hrs = max
-    "overflow_level":    5,      # Level 5 = overflowing
-    "collection_delay_hr": 12,   # 12+ hours without collection = max
-    "rainfall_mm_hr":    50,     # 50mm/hr = max rainfall stress
+    "report_count_2hr":    8,      # 8+ reports in 2 hrs = max
+    "overflow_level":      5,      # Level 5 = overflowing
+    "collection_delay_hr": 12,     # 12+ hours without collection = max
+    "rainfall_mm_hr":      50,     # 50mm/hr = max rainfall stress (CAPPED)
 }
 
 ROAD_NORM = {
-    "report_count_3hr":  6,      # 6+ road reports in 3 hrs = max
-    "severity":          5,      # Severity 5 = critical
-    "rainfall_mm_hr":    50,     # Same rainfall threshold
+    "report_count_6hr":    6,      # 6+ road reports in 6 hrs = max
+    "severity":            5,      # Severity 5 = critical
+    "rainfall_mm_hr":      50,     # Same rainfall threshold (CAPPED)
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STATE BANDS (shared by both waste and road)
+# STATE BANDS (shared by both waste-ward and road scoring)
 # ══════════════════════════════════════════════════════════════════════════════
 STATE_BANDS = [
     {"min": 0,  "max": 30,  "label": "Normal",   "color": "#16A34A"},
@@ -54,8 +66,13 @@ HYSTERESIS_BUFFER = 10
 # ══════════════════════════════════════════════════════════════════════════════
 # ROLLING WINDOW DURATIONS
 # ══════════════════════════════════════════════════════════════════════════════
-WASTE_WINDOW_HOURS = 2
-ROAD_WINDOW_HOURS  = 3
+WASTE_REPORT_WINDOW_HOURS = 2     # Waste reports expire after 2 hours
+ROAD_ISSUE_WINDOW_HOURS = 6       # Road issues expire after 6 hours
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DEDUPLICATION
+# ══════════════════════════════════════════════════════════════════════════════
+DEDUP_WINDOW_MINUTES = 5          # Same dustbin, same 5 min = merge
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DATA DIRECTORIES (Pathway watches these)
@@ -65,10 +82,10 @@ REPORT_DIR       = "./data/reports"
 OUTPUT_DIR       = "./data/output"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# WEATHER API
+# WEATHER API (WeatherAPI.com — single source)
 # ══════════════════════════════════════════════════════════════════════════════
-WEATHER_API_URL  = "https://api.openweathermap.org/data/2.5/weather"
-WEATHER_CITY_ID  = 1273294   # Delhi
+WEATHER_API_URL  = "http://api.weatherapi.com/v1/current.json"
+WEATHER_CITY     = "Delhi"
 WEATHER_POLL_SEC = 600       # 10 minutes
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -78,6 +95,6 @@ SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
 
 # ══════════════════════════════════════════════════════════════════════════════
-# LLM
+# PRIORITY QUEUE
 # ══════════════════════════════════════════════════════════════════════════════
-LLM_PROVIDER = "gemini"
+PRIORITY_QUEUE_MAX = 20

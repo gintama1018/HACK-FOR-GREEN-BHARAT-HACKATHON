@@ -1,510 +1,643 @@
 """
-InfraWatch Nexus — Pathway Real-Time Streaming Engine
-======================================================
-THE single source of truth.
+InfraWatch Nexus — Pathway Streaming Engine
+=============================================
+ALL computation lives here. Nothing in FastAPI.
 
-Everything happens here:
-  1. Ingest waste reports     (directory watch)
-  2. Ingest road reports      (directory watch)
-  3. Ingest van collection logs (directory watch)
-  4. Poll live weather         (inside Pathway loop)
-  5. Compute waste risk        (rolling 2hr window)
-  6. Compute road risk         (rolling 3hr window)
-  7. Compute unified priority  (Critical waste > road)
-  8. Output to JSONL           (FastAPI reads this)
-
-Run inside WSL:
-  /opt/pw_env/bin/python3 pathway_engine.py
+Responsibilities:
+  - Watch event directories (waste, road, vans, weather)
+  - Aggregate per-dustbin (with event-time rolling windows)
+  - Compute dustbin states (Clear/Reported/Escalated/Critical/Cleared)
+  - Compute ward-level risk scores
+  - Process road issues (with expiry)
+  - Build unified priority queue
+  - Output atomic dashboard JSON snapshot
+  - Poll WeatherAPI.com for live rainfall
 """
 
-import pathway as pw
 import json
 import os
+import sys
+import tempfile
+import threading
 import time
-import urllib.request
+import requests
 from datetime import datetime, timedelta
 
-# Load .env from project root
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
-except ImportError:
-    pass  # dotenv not available in WSL — fall back to environment
+import pathway as pw
 
-ENGINE_STARTED_AT = datetime.now().isoformat()
+# Project root
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# ---------------------------------------------------------------------------
-# Resolve paths
-# ---------------------------------------------------------------------------
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+from config.settings import (
+    WASTE_RISK_WEIGHTS, ROAD_RISK_WEIGHTS,
+    WASTE_NORM, ROAD_NORM, STATE_BANDS,
+    DUSTBIN_STATE_THRESHOLDS,
+    WASTE_REPORT_WINDOW_HOURS, ROAD_ISSUE_WINDOW_HOURS,
+    WEATHER_API_URL, WEATHER_CITY, WEATHER_POLL_SEC,
+    PRIORITY_QUEUE_MAX,
+)
+from config.wards import WARDS, CITY_CENTER
+from config.dustbins import DUSTBINS
 
-REPORT_DIR  = os.path.join(PROJECT_ROOT, "data", "reports")
-WASTE_DIR   = os.path.join(REPORT_DIR, "waste")
-ROAD_DIR    = os.path.join(REPORT_DIR, "road")
-VAN_DIR     = os.path.join(REPORT_DIR, "vans")
-WEATHER_DIR = os.path.join(REPORT_DIR, "weather")
-OUTPUT_DIR  = os.path.join(PROJECT_ROOT, "data", "output")
+from dotenv import load_dotenv
+load_dotenv()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DIRECTORIES
+# ═══════════════════════════════════════════════════════════════════════════
+BASE       = os.path.dirname(os.path.abspath(__file__))
+WASTE_DIR  = os.path.join(BASE, "data", "reports", "waste")
+ROAD_DIR   = os.path.join(BASE, "data", "reports", "road")
+VAN_DIR    = os.path.join(BASE, "data", "reports", "vans")
+WEATHER_DIR= os.path.join(BASE, "data", "reports", "weather")
+OUTPUT_DIR = os.path.join(BASE, "data", "output")
 
 for d in [WASTE_DIR, ROAD_DIR, VAN_DIR, WEATHER_DIR, OUTPUT_DIR]:
     os.makedirs(d, exist_ok=True)
 
-print(f"[Pathway] Project  : {PROJECT_ROOT}")
-print(f"[Pathway] Reports  : {REPORT_DIR}")
-print(f"[Pathway] Output   : {OUTPUT_DIR}")
+# Ward and dustbin ID lists
+WARD_IDS    = list(WARDS.keys())
+DUSTBIN_IDS = list(DUSTBINS.keys())
+DUSTBIN_TO_WARD = {did: info["ward_id"] for did, info in DUSTBINS.items()}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WEATHER POLLER (background thread, writes to watched directory)
+# ═══════════════════════════════════════════════════════════════════════════
+_latest_weather = {"rainfall_mm_hr": 0.0, "weather_source": "none", "timestamp": ""}
+
+def _weather_poller():
+    """Poll WeatherAPI.com every WEATHER_POLL_SEC. Write to weather directory."""
+    global _latest_weather
+    api_key = os.getenv("WX_API_KEY", "")
+    started_at = datetime.now().isoformat()
+
+    while True:
+        rainfall = 0.0
+        source = "fallback"
+
+        if api_key:
+            try:
+                resp = requests.get(
+                    WEATHER_API_URL,
+                    params={"key": api_key, "q": WEATHER_CITY, "aqi": "no"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    rainfall = data.get("current", {}).get("precip_mm", 0.0)
+                    source = "weatherapi.com"
+            except Exception as e:
+                print(f"[Weather] API error: {e}")
+
+        now_ts = datetime.now().isoformat()
+        weather_event = {
+            "rainfall_mm_hr": rainfall,
+            "timestamp": now_ts,
+            "weather_source": source,
+            "engine_started_at": started_at,
+        }
+
+        _latest_weather = weather_event
+
+        # Write to weather directory for Pathway to pick up
+        weather_file = os.path.join(WEATHER_DIR, "current_weather.json")
+        try:
+            with open(weather_file, "w") as f:
+                json.dump([weather_event], f)
+        except Exception as e:
+            print(f"[Weather] Write error: {e}")
+
+        print(f"[Weather] {source}: {rainfall}mm/hr @ {now_ts}")
+        time.sleep(WEATHER_POLL_SEC)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# RISK COMPUTATION CONSTANTS (mirrors config/settings.py)
-# Duplicated here so Pathway is self-contained — no cross-module import.
+# HELPER FUNCTIONS (used inside pw.apply)
 # ═══════════════════════════════════════════════════════════════════════════
-
-WASTE_WEIGHTS = {
-    "report_freq":       0.35,
-    "overflow_severity": 0.30,
-    "collection_delay":  0.20,
-    "rainfall":          0.15,
-}
-WASTE_NORM = {
-    "report_count_2hr":    8,
-    "overflow_level":      5,
-    "collection_delay_hr": 12,
-    "rainfall_mm_hr":      50,
-}
-
-ROAD_WEIGHTS = {
-    "report_density": 0.60,
-    "severity":       0.25,
-    "rainfall":       0.15,
-}
-ROAD_NORM = {
-    "report_count_3hr": 6,
-    "severity":         5,
-    "rainfall_mm_hr":   50,
-}
-
-# Ward and segment definitions (inlined for Pathway independence)
-WARD_IDS = [f"W{i:02d}" for i in range(1, 13)]
-SEGMENT_IDS = [f"R{i:02d}" for i in range(1, 13)]
-SEGMENT_TO_WARD = {
-    "R01": "W01", "R02": "W02", "R03": "W03", "R04": "W04",
-    "R05": "W05", "R06": "W06", "R07": "W07", "R08": "W08",
-    "R09": "W09", "R10": "W10", "R11": "W11", "R12": "W12",
-}
-
-# Weather API (OpenWeatherMap free tier)
-WEATHER_API_KEY = os.environ.get("OPENWEATHER_API_KEY", "")
-WEATHER_CITY_ID = 1273294  # Delhi
-
-print(f"[Pathway] Weather API key: {'SET (' + WEATHER_API_KEY[:8] + '...)' if WEATHER_API_KEY else 'NOT SET (fallback mode)'}")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# HELPER: Classify risk state
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _classify(score: float) -> str:
-    if score < 30:  return "Normal"
-    if score < 55:  return "Elevated"
-    if score < 75:  return "Warning"
-    return "Critical"
-
 def _norm(val, threshold):
-    if threshold <= 0: return 0.0
+    """Normalize to 0-1, capped at 1.0."""
+    if threshold <= 0:
+        return 0.0
     return min(1.0, max(0.0, val / threshold))
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# WEATHER POLLER (runs inside Pathway event loop via pw.io.python)
-# Polls OpenWeatherMap every 10 minutes, writes unique file to WEATHER_DIR
-# Pathway then ingests that file reactively.
-# ═══════════════════════════════════════════════════════════════════════════
+def _classify(score):
+    """Score → state label."""
+    for band in STATE_BANDS:
+        if band["min"] <= score <= band["max"]:
+            return band["label"]
+    return "Critical" if score > 100 else "Normal"
 
-def _poll_weather_once():
-    """Fetch current Delhi weather and write to WEATHER_DIR as unique file."""
-    rainfall = 0.0
+
+def _color(state):
+    """State label → color hex."""
+    for band in STATE_BANDS:
+        if band["label"] == state:
+            return band["color"]
+    return "#16A34A"
+
+
+from datetime import timezone
+
+def _parse_ts(ts_str):
+    """Safely parse ISO string to timezone-aware datetime."""
+    if not ts_str:
+        return datetime.min.replace(tzinfo=timezone.utc)
     try:
-        if WEATHER_API_KEY:
-            url = (
-                f"https://api.openweathermap.org/data/2.5/weather"
-                f"?id={WEATHER_CITY_ID}&appid={WEATHER_API_KEY}&units=metric"
-            )
-            req = urllib.request.Request(url, headers={"User-Agent": "InfraWatch/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read().decode())
-                # Rain data: "rain": {"1h": mm}
-                rainfall = data.get("rain", {}).get("1h", 0.0)
+        # Handle JS 'Z' suffix and parse
+        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            # Assume local time if naive, but force to a standard for comparison
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FILE READERS — reads all event files from a directory
+# ═══════════════════════════════════════════════════════════════════════════
+def _read_all_events(directory: str) -> list:
+    """Read all JSON event files from a directory. Returns flat event list."""
+    events = []
+    if not os.path.exists(directory):
+        return events
+    for fname in sorted(os.listdir(directory)):
+        if not fname.endswith(".json"):
+            continue
+        fpath = os.path.join(directory, fname)
+        try:
+            with open(fpath, "r") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                events.extend(data)
+            elif isinstance(data, dict):
+                events.append(data)
+        except Exception:
+            continue
+    return events
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CORE COMPUTATION — EVERYTHING LIVES HERE
+# ═══════════════════════════════════════════════════════════════════════════
+def compute_dashboard_snapshot() -> dict:
+    """
+    Read all event files → compute complete dashboard state.
+    Uses EVENT-TIME windowing (not wall-clock).
+    Returns atomic JSON snapshot.
+    """
+    # ── Read all events ─────────────────────────────────────────────────
+    waste_events = _read_all_events(WASTE_DIR)
+    van_events   = _read_all_events(VAN_DIR)
+    road_events  = _read_all_events(ROAD_DIR)
+
+    # ── Weather (from poller) ───────────────────────────────────────────
+    rainfall = _latest_weather.get("rainfall_mm_hr", 0.0)
+    # CAP rainfall at normalization threshold
+    rainfall_capped = min(rainfall, WASTE_NORM["rainfall_mm_hr"])
+    n_rain = _norm(rainfall_capped, WASTE_NORM["rainfall_mm_hr"])
+
+    # ── Event-Time Window Start ─────────────────────────────────────────
+    # Parse all timestamps to tz-aware datetimes for safe comparison
+    waste_dts = [_parse_ts(e.get("timestamp", "")) for e in waste_events if e.get("timestamp")]
+    latest_waste_dt = max(waste_dts) if waste_dts else datetime.now(timezone.utc)
+    waste_window_start_dt = latest_waste_dt - timedelta(hours=WASTE_REPORT_WINDOW_HOURS)
+
+    # Road event window
+    road_dts = [_parse_ts(e.get("timestamp", "")) for e in road_events if e.get("timestamp")]
+    latest_road_dt = max(road_dts) if road_dts else datetime.now(timezone.utc)
+    road_window_start_dt = latest_road_dt - timedelta(hours=ROAD_ISSUE_WINDOW_HOURS)
+
+    # ── Van collection events (latest per dustbin) ──────────────────────
+    latest_van_by_dustbin = {}
+    for e in van_events:
+        if e.get("event_type") == "collection_confirmed":
+            did = e.get("dustbin_id", "")
+            ts_str = e.get("timestamp", "")
+            if not did or not ts_str:
+                continue
+            ts_dt = _parse_ts(ts_str)
+            if did not in latest_van_by_dustbin or ts_dt > latest_van_by_dustbin[did]["dt"]:
+                latest_van_by_dustbin[did] = {"ts": ts_str, "dt": ts_dt}
+
+    # ── Dustbin-level aggregation (windowed) ────────────────────────────
+    dustbin_agg = {}  # dustbin_id → {report_count, max_overflow, latest_ts}
+
+    for e in waste_events:
+        ts_str = e.get("timestamp", "")
+        ts_dt = _parse_ts(ts_str)
+        if ts_dt < waste_window_start_dt:
+            continue  # Outside window — skip
+
+        did = e.get("dustbin_id", "")
+        if not did or did not in DUSTBINS:
+            continue
+
+        if did not in dustbin_agg:
+            dustbin_agg[did] = {
+                "report_count": 0,
+                "max_overflow": 0,
+                "total_overflow": 0,
+                "latest_ts": "",
+                "latest_dt": _parse_ts(""),
+            }
+        dustbin_agg[did]["report_count"] += 1
+        overflow = e.get("overflow_level", 1)
+        dustbin_agg[did]["max_overflow"] = max(dustbin_agg[did]["max_overflow"], overflow)
+        dustbin_agg[did]["total_overflow"] += overflow
+        if ts_dt > dustbin_agg[did]["latest_dt"]:
+            dustbin_agg[did]["latest_ts"] = ts_str
+            dustbin_agg[did]["latest_dt"] = ts_dt
+
+    # ── Dustbin States ──────────────────────────────────────────────────
+    thresholds = DUSTBIN_STATE_THRESHOLDS
+    dustbin_states = []
+
+    for did in DUSTBIN_IDS:
+        agg = dustbin_agg.get(did, {})
+        report_count = agg.get("report_count", 0)
+        max_overflow = agg.get("max_overflow", 0)
+        avg_overflow = round(agg.get("total_overflow", 0) / max(1, report_count), 1) if report_count else 0
+
+        # Check van-cleared override
+        van_data = latest_van_by_dustbin.get(did, {})
+        van_ts = van_data.get("ts", "")
+        van_dt = van_data.get("dt", None)
+        latest_report_dt = agg.get("latest_dt", None)
+
+        if van_dt and (not latest_report_dt or van_dt > latest_report_dt):
+            state = "Cleared"
+        elif report_count >= thresholds["Critical"]["min_reports"]:
+            state = "Critical"
+        elif report_count >= thresholds["Escalated"]["min_reports"] or max_overflow >= thresholds["Escalated"]["or_overflow_gte"]:
+            # Check if Escalated + rain → Critical
+            if rainfall >= thresholds["Critical"]["or_escalated_with_rain_gte"]:
+                state = "Critical"
+            else:
+                state = "Escalated"
+        elif report_count >= thresholds["Reported"]["min_reports"]:
+            state = "Reported"
         else:
-            # No API key — use 0 rainfall (system still functions via collection delay)
-            rainfall = 0.0
-    except Exception as e:
-        print(f"[Weather] Error: {e}")
-        rainfall = 0.0
+            state = "Clear"
 
-    ts = datetime.now()
-    record = {
-        "rainfall_mm_hr": round(rainfall, 1),
-        "timestamp": ts.isoformat(),
-        "engine_started_at": ENGINE_STARTED_AT,
-        "weather_source": "openweathermap" if WEATHER_API_KEY else "fallback",
-    }
-    filename = f"weather_{ts.strftime('%Y%m%d_%H%M%S_%f')}.json"
-    filepath = os.path.join(WEATHER_DIR, filename)
-    with open(filepath, "w") as f:
-        json.dump([record], f)  # Array of one record
+        info = DUSTBINS[did]
+        dustbin_states.append({
+            "dustbin_id": did,
+            "ward_id": info["ward_id"],
+            "lat": info["lat"],
+            "lng": info["lng"],
+            "street": info["street"],
+            "state": state,
+            "report_count": report_count,
+            "max_overflow": max_overflow,
+            "avg_overflow": avg_overflow,
+            "latest_report_ts": agg.get("latest_ts", ""),
+            "van_cleared_ts": van_ts or None,
+            "color": _dustbin_color(state),
+        })
 
-    print(f"[Weather] rainfall={rainfall} mm/hr → {filename}")
-    return rainfall
+    # ── Ward-Level Risk Scores ──────────────────────────────────────────
+    ward_risks = []
+    for wid, ward_info in WARDS.items():
+        # Aggregate dustbin data for this ward
+        ward_dustbins = [d for d in dustbin_states if d["ward_id"] == wid]
+        total_reports = sum(d["report_count"] for d in ward_dustbins)
+        avg_overflow = 0
+        overflow_vals = [d["avg_overflow"] for d in ward_dustbins if d["avg_overflow"] > 0]
+        if overflow_vals:
+            avg_overflow = round(sum(overflow_vals) / len(overflow_vals), 1)
 
+        # Collection delay: hours since last van event in this ward
+        ward_van_times = [latest_van_by_dustbin[did]["dt"] for did in latest_van_by_dustbin
+                          if DUSTBIN_TO_WARD.get(did) == wid]
+        if ward_van_times:
+            latest_van_dt_val = max(ward_van_times)
+            delay_hr = (latest_waste_dt - latest_van_dt_val).total_seconds() / 3600.0
+            delay_hr = max(0, round(delay_hr, 1))
+        else:
+            delay_hr = 6.0  # Default if no van data
 
-# Write an initial weather file so Pathway has data from the start
-_poll_weather_once()
+        # Active vans: count vans that collected within last 2 hours
+        active_vans = 0
+        for did in [d for d in latest_van_by_dustbin if DUSTBIN_TO_WARD.get(d) == wid]:
+            vt = latest_van_by_dustbin[did]["dt"]
+            if (latest_waste_dt - vt).total_seconds() < 7200:
+                active_vans += 1
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# PATHWAY FILE READERS
-# Each reads binary from a watched directory, then pw.apply parses JSON.
-# Every report = unique file. Files are never overwritten.
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _read_dir(name: str, path: str):
-    """Watch a directory for new JSON files."""
-    print(f"[Pathway] Watching: {path}")
-    return pw.io.fs.read(path, format="binary", mode="streaming", with_metadata=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# WASTE RISK AGGREGATION
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _compute_waste_file_agg(raw_bytes: bytes) -> str:
-    """
-    From a waste report file (JSON array):
-    [{"bin_id":"B12","ward_id":"W03","overflow_level":4,"timestamp":"...","reporter_type":"worker"}]
-    → Per-ward aggregate: {ward_id, report_count, avg_overflow, latest_ts}
-    """
-    try:
-        events = json.loads(raw_bytes.decode("utf-8"))
-        agg = {}
-        for e in events:
-            wid = e.get("ward_id", "")
-            if not wid:
-                continue
-            if wid not in agg:
-                agg[wid] = {"count": 0, "total_overflow": 0, "latest_ts": ""}
-            agg[wid]["count"] += 1
-            agg[wid]["total_overflow"] += e.get("overflow_level", 1)
-            ts = e.get("timestamp", "")
-            if ts > agg[wid]["latest_ts"]:
-                agg[wid]["latest_ts"] = ts
-        result = []
-        for wid, v in agg.items():
-            result.append({
-                "ward_id": wid,
-                "report_count": v["count"],
-                "avg_overflow": round(v["total_overflow"] / max(1, v["count"]), 1),
-                "latest_ts": v["latest_ts"],
-            })
-        return json.dumps(result)
-    except Exception:
-        return "[]"
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# VAN COLLECTION AGGREGATION
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _compute_van_file_agg(raw_bytes: bytes) -> str:
-    """
-    From a van log file:
-    [{"van_id":"V01","ward_id":"W03","last_collection_time":"...","route_status":"active"}]
-    → Per-ward: latest collection time, active van count
-    """
-    try:
-        events = json.loads(raw_bytes.decode("utf-8"))
-        agg = {}
-        for e in events:
-            wid = e.get("ward_id", "")
-            if not wid:
-                continue
-            if wid not in agg:
-                agg[wid] = {"latest_collection": "", "active_vans": 0}
-            ctime = e.get("last_collection_time", "")
-            if ctime > agg[wid]["latest_collection"]:
-                agg[wid]["latest_collection"] = ctime
-            if e.get("route_status") == "active":
-                agg[wid]["active_vans"] += 1
-        result = []
-        for wid, v in agg.items():
-            # Compute delay in hours from last collection
-            delay_hr = 0.0
-            if v["latest_collection"]:
-                try:
-                    last = datetime.fromisoformat(v["latest_collection"])
-                    delay_hr = (datetime.now() - last).total_seconds() / 3600.0
-                except Exception:
-                    delay_hr = 6.0  # Assume moderate delay on parse error
-            result.append({
-                "ward_id": wid,
-                "collection_delay_hr": round(delay_hr, 1),
-                "active_vans": v["active_vans"],
-                "latest_collection": v["latest_collection"],
-            })
-        return json.dumps(result)
-    except Exception:
-        return "[]"
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# ROAD RISK AGGREGATION
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _compute_road_file_agg(raw_bytes: bytes) -> str:
-    """
-    From a road report file:
-    [{"segment_id":"R05","ward_id":"W05","issue_type":"pothole","severity":4,"timestamp":"..."}]
-    → Per-segment aggregate
-    """
-    try:
-        events = json.loads(raw_bytes.decode("utf-8"))
-        agg = {}
-        for e in events:
-            sid = e.get("segment_id", "")
-            if not sid:
-                continue
-            if sid not in agg:
-                agg[sid] = {"count": 0, "total_severity": 0, "ward_id": e.get("ward_id", "")}
-            agg[sid]["count"] += 1
-            agg[sid]["total_severity"] += e.get("severity", 1)
-        result = []
-        for sid, v in agg.items():
-            result.append({
-                "segment_id": sid,
-                "ward_id": v["ward_id"],
-                "report_count": v["count"],
-                "avg_severity": round(v["total_severity"] / max(1, v["count"]), 1),
-            })
-        return json.dumps(result)
-    except Exception:
-        return "[]"
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# WEATHER AGGREGATION
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _compute_weather_agg(raw_bytes: bytes) -> str:
-    """Parse weather file → latest rainfall + freshness metadata."""
-    try:
-        events = json.loads(raw_bytes.decode("utf-8"))
-        if events:
-            e = events[-1]
-            return json.dumps({
-                "rainfall_mm_hr": e.get("rainfall_mm_hr", 0.0),
-                "weather_ts": e.get("timestamp", ""),
-                "engine_started_at": e.get("engine_started_at", ""),
-                "weather_source": e.get("weather_source", "unknown"),
-            })
-        return json.dumps({"rainfall_mm_hr": 0.0})
-    except Exception:
-        return json.dumps({"rainfall_mm_hr": 0.0})
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# COMBINED RISK + PRIORITY (computed inside Pathway via pw.apply)
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _compute_all_risks(
-    waste_json: str,
-    van_json: str,
-    road_json: str,
-    weather_json: str,
-) -> str:
-    """
-    Join all streams → compute waste risk per ward, road risk per segment,
-    and unified priority queue. ALL inside this function (called by pw.apply).
-
-    Returns JSON: {
-        "waste_risks": [...],
-        "road_risks": [...],
-        "priority_queue": [...],
-        "city_waste_index": float,
-        "city_road_index": float,
-        "timestamp": str,
-    }
-    """
-    # Parse inputs
-    try: waste_agg = {e["ward_id"]: e for e in json.loads(waste_json)}
-    except: waste_agg = {}
-
-    try: van_agg = {e["ward_id"]: e for e in json.loads(van_json)}
-    except: van_agg = {}
-
-    try: road_agg = {e["segment_id"]: e for e in json.loads(road_json)}
-    except: road_agg = {}
-
-    try: weather = json.loads(weather_json)
-    except: weather = {}
-
-    rainfall = weather.get("rainfall_mm_hr", 0.0)
-    n_rain = _norm(rainfall, WASTE_NORM["rainfall_mm_hr"])
-
-    # ── Waste Risk per Ward ──────────────────────────────────────────────
-    waste_risks = []
-    for wid in WARD_IDS:
-        w = waste_agg.get(wid, {})
-        v = van_agg.get(wid, {})
-
-        report_count = w.get("report_count", 0)
-        avg_overflow = w.get("avg_overflow", 0.0)
-        delay_hr     = v.get("collection_delay_hr", 6.0)  # Default 6hr if no van log
-        active_vans  = v.get("active_vans", 0)
-
-        n_reports  = _norm(report_count, WASTE_NORM["report_count_2hr"])
-        n_overflow = _norm(avg_overflow,  WASTE_NORM["overflow_level"])
-        n_delay    = _norm(delay_hr,     WASTE_NORM["collection_delay_hr"])
+        # Risk score
+        n_reports  = _norm(total_reports, WASTE_NORM["report_count_2hr"])
+        n_overflow = _norm(avg_overflow, WASTE_NORM["overflow_level"])
+        n_delay    = _norm(delay_hr, WASTE_NORM["collection_delay_hr"])
 
         score = (
-            n_reports  * WASTE_WEIGHTS["report_freq"]
-            + n_overflow * WASTE_WEIGHTS["overflow_severity"]
-            + n_delay    * WASTE_WEIGHTS["collection_delay"]
-            + n_rain     * WASTE_WEIGHTS["rainfall"]
+            n_reports  * WASTE_RISK_WEIGHTS["report_freq"]
+            + n_overflow * WASTE_RISK_WEIGHTS["overflow_severity"]
+            + n_delay    * WASTE_RISK_WEIGHTS["collection_delay"]
+            + n_rain     * WASTE_RISK_WEIGHTS["rainfall"]
         ) * 100
-
         score = min(100, max(0, round(score)))
         state = _classify(score)
 
-        waste_risks.append({
+        # Count dustbins in non-clear states
+        bins_reported = len([d for d in ward_dustbins if d["state"] not in ("Clear", "Cleared")])
+
+        ward_risks.append({
             "ward_id": wid,
+            "name": ward_info["name"],
+            "zone": ward_info["zone"],
+            "lat": ward_info["lat"],
+            "lng": ward_info["lng"],
+            "bins": ward_info["bins"],
             "risk_score": score,
             "state": state,
-            "report_count": report_count,
+            "color": _color(state),
+            "report_count": total_reports,
             "avg_overflow": avg_overflow,
-            "collection_delay_hr": round(delay_hr, 1),
+            "collection_delay_hr": delay_hr,
             "active_vans": active_vans,
-            "rainfall_mm_hr": rainfall,
+            "bins_reported": bins_reported,
             "type": "waste",
         })
 
-    # ── Road Risk per Segment ────────────────────────────────────────────
-    road_risks = []
-    for sid in SEGMENT_IDS:
-        r = road_agg.get(sid, {})
+    # ── Road Issues (windowed) ──────────────────────────────────────────
+    road_issues = []
+    road_by_ward = {}  # ward_id → {report_count, total_severity}
 
-        report_count = r.get("report_count", 0)
-        avg_severity = r.get("avg_severity", 0.0)
+    for e in road_events:
+        ts_str = e.get("timestamp", "")
+        ts_dt = _parse_ts(ts_str)
+        if ts_dt < road_window_start_dt:
+            continue  # Expired
 
-        n_reports  = _norm(report_count, ROAD_NORM["report_count_3hr"])
-        n_severity = _norm(avg_severity,  ROAD_NORM["severity"])
+        from_bin = e.get("from_dustbin", "")
+        to_bin = e.get("to_dustbin", "")
+        ward_id = e.get("ward_id", "")
+
+        if not from_bin or not to_bin:
+            continue
+
+        from_info = DUSTBINS.get(from_bin, {})
+        to_info = DUSTBINS.get(to_bin, {})
+
+        road_issues.append({
+            "event_id": e.get("event_id", ""),
+            "from_dustbin": from_bin,
+            "to_dustbin": to_bin,
+            "from_lat": from_info.get("lat", 0),
+            "from_lng": from_info.get("lng", 0),
+            "to_lat": to_info.get("lat", 0),
+            "to_lng": to_info.get("lng", 0),
+            "ward_id": ward_id,
+            "issue_type": e.get("issue_type", ""),
+            "severity": e.get("severity", 1),
+            "timestamp": ts_str,
+        })
+
+        # Aggregate road issues per ward for scoring
+        if ward_id not in road_by_ward:
+            road_by_ward[ward_id] = {"count": 0, "total_severity": 0}
+        road_by_ward[ward_id]["count"] += 1
+        road_by_ward[ward_id]["total_severity"] += e.get("severity", 1)
+
+    # ── Road Risk per Ward ──────────────────────────────────────────────
+    road_ward_risks = []
+    for wid, ward_info in WARDS.items():
+        r = road_by_ward.get(wid, {})
+        report_count = r.get("count", 0)
+        avg_severity = round(r.get("total_severity", 0) / max(1, report_count), 1) if report_count else 0
+
+        n_reports  = _norm(report_count, ROAD_NORM["report_count_6hr"])
+        n_severity = _norm(avg_severity, ROAD_NORM["severity"])
 
         score = (
-            n_reports  * ROAD_WEIGHTS["report_density"]
-            + n_severity * ROAD_WEIGHTS["severity"]
-            + n_rain     * ROAD_WEIGHTS["rainfall"]
+            n_reports  * ROAD_RISK_WEIGHTS["report_density"]
+            + n_severity * ROAD_RISK_WEIGHTS["severity"]
+            + n_rain     * ROAD_RISK_WEIGHTS["rainfall"]
         ) * 100
-
         score = min(100, max(0, round(score)))
         state = _classify(score)
 
-        road_risks.append({
-            "segment_id": sid,
-            "ward_id": SEGMENT_TO_WARD.get(sid, ""),
+        road_ward_risks.append({
+            "ward_id": wid,
+            "name": ward_info["name"],
             "risk_score": score,
             "state": state,
+            "color": _color(state),
             "report_count": report_count,
             "avg_severity": avg_severity,
-            "rainfall_mm_hr": rainfall,
             "type": "road",
         })
 
-    # ── Unified Priority Queue ───────────────────────────────────────────
-    # Critical waste first, then critical road, then Warning waste, etc.
+    # ── Unified Priority Queue ──────────────────────────────────────────
     STATE_PRIORITY = {"Critical": 0, "Warning": 1, "Elevated": 2, "Normal": 3}
 
     priority = []
-    for wr in waste_risks:
-        if wr["state"] != "Normal":
+
+    # Dustbins in non-clear states
+    for ds in dustbin_states:
+        if ds["state"] in ("Reported", "Escalated", "Critical"):
             priority.append({
-                "id": wr["ward_id"],
-                "name": wr["ward_id"],
+                "id": ds["dustbin_id"],
+                "name": f"{ds['street']} ({ds['dustbin_id']})",
                 "type": "waste",
-                "risk_score": wr["risk_score"],
-                "state": wr["state"],
-                "sort_key": STATE_PRIORITY.get(wr["state"], 3) * 1000 - wr["risk_score"],
-                "type_priority": 0,  # Waste gets higher priority
-            })
-    for rr in road_risks:
-        if rr["state"] != "Normal":
-            priority.append({
-                "id": rr["segment_id"],
-                "name": rr["segment_id"],
-                "type": "road",
-                "risk_score": rr["risk_score"],
-                "state": rr["state"],
-                "sort_key": STATE_PRIORITY.get(rr["state"], 3) * 1000 - rr["risk_score"],
-                "type_priority": 1,  # Road is secondary
+                "risk_score": _dustbin_state_score(ds["state"]),
+                "state": ds["state"],
+                "color": ds["color"],
+                "ward_id": ds["ward_id"],
+                "report_count": ds["report_count"],
             })
 
-    # Sort: by type_priority (waste first), then by sort_key
-    priority.sort(key=lambda x: (x["type_priority"], x["sort_key"]))
+    # Road issues by severity
+    for ri in road_issues:
+        priority.append({
+            "id": ri["event_id"],
+            "name": f"{ri['issue_type'].title()}: {ri['from_dustbin']} → {ri['to_dustbin']}",
+            "type": "road",
+            "risk_score": ri["severity"] * 20,
+            "state": _classify(ri["severity"] * 20),
+            "color": _color(_classify(ri["severity"] * 20)),
+            "ward_id": ri["ward_id"],
+            "issue_type": ri["issue_type"],
+        })
 
-    # ── City-level indices ───────────────────────────────────────────────
-    city_waste = round(sum(w["risk_score"] for w in waste_risks) / max(1, len(waste_risks)), 1)
-    city_road  = round(sum(r["risk_score"] for r in road_risks) / max(1, len(road_risks)), 1)
+    # Sort: Critical waste first, then by score
+    priority.sort(key=lambda x: (
+        0 if x["type"] == "waste" else 1,
+        {"Critical": 0, "Escalated": 1, "Warning": 2, "Reported": 3, "Elevated": 4, "Normal": 5}.get(x["state"], 5),
+        -x["risk_score"],
+    ))
+    priority = priority[:PRIORITY_QUEUE_MAX]
 
-    result = {
-        "waste_risks": waste_risks,
-        "road_risks": road_risks,
-        "priority_queue": priority[:20],  # Top 20
+    # ── City-Level Indices ──────────────────────────────────────────────
+    city_waste = round(sum(w["risk_score"] for w in ward_risks) / max(1, len(ward_risks)), 1)
+    city_road  = round(sum(r["risk_score"] for r in road_ward_risks) / max(1, len(road_ward_risks)), 1)
+
+    # ── Atomic Snapshot ─────────────────────────────────────────────────
+    snapshot = {
+        "dustbin_states": dustbin_states,
+        "ward_risks": ward_risks,
+        "road_ward_risks": road_ward_risks,
+        "road_issues": road_issues,
+        "priority_queue": priority,
         "city_waste_index": city_waste,
         "city_road_index": city_road,
         "rainfall_mm_hr": rainfall,
+        "weather_source": _latest_weather.get("weather_source", "none"),
         "timestamp": datetime.now().isoformat(),
     }
 
-    return json.dumps(result)
+    return snapshot
+
+
+def _dustbin_color(state):
+    """Dustbin state → color."""
+    return {
+        "Clear": "#16A34A",     # Green
+        "Reported": "#D97706",  # Amber
+        "Escalated": "#EA580C", # Orange
+        "Critical": "#DC2626",  # Red
+        "Cleared": "#06B6D4",   # Cyan (confirmed cleared)
+    }.get(state, "#6B7280")
+
+
+def _dustbin_state_score(state):
+    """Convert dustbin state to numeric score for priority sorting."""
+    return {
+        "Clear": 0,
+        "Reported": 30,
+        "Escalated": 60,
+        "Critical": 90,
+        "Cleared": 0,
+    }.get(state, 0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# PATHWAY PIPELINE
+# PATHWAY PIPELINE — watches directories, triggers recomputation
 # ═══════════════════════════════════════════════════════════════════════════
+def _read_dir(label, path):
+    """Read a watched directory as Pathway table."""
+    os.makedirs(path, exist_ok=True)
+    print(f"  [Pathway] Watching: {path} ({label})")
+    return pw.io.fs.read(
+        path,
+        format="binary",
+        mode="streaming",
+        with_metadata=True,
+    )
 
+
+def _on_change_recompute(data: bytes) -> str:
+    """
+    Called by Pathway on every file change.
+    Triggers full dashboard recomputation.
+    Writes atomic snapshot to output.
+    """
+    try:
+        snapshot = compute_dashboard_snapshot()
+        _write_atomic_snapshot(snapshot)
+        return json.dumps({"status": "ok", "timestamp": snapshot["timestamp"]})
+    except Exception as e:
+        return json.dumps({"status": "error", "error": str(e)})
+
+
+def _write_atomic_snapshot(snapshot: dict):
+    """Write dashboard snapshot atomically (temp file + rename)."""
+    dashboard_path = os.path.join(OUTPUT_DIR, "dashboard.jsonl")
+    try:
+        # Write to temp file first
+        fd, tmp_path = tempfile.mkstemp(dir=OUTPUT_DIR, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as tmp:
+                tmp.write(json.dumps(snapshot) + "\n")
+                tmp.flush()
+        except Exception:
+            os.close(fd)
+            raise
+        # Atomic rename
+        os.replace(tmp_path, dashboard_path)
+    except Exception as e:
+        print(f"[Snapshot] Write error: {e}")
+        # Fallback: direct write
+        try:
+            with open(dashboard_path, "w") as f:
+                f.write(json.dumps(snapshot) + "\n")
+        except Exception:
+            pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# STANDALONE RECOMPUTATION LOOP (runs alongside Pathway)
+# ═══════════════════════════════════════════════════════════════════════════
+def _recompute_loop():
+    """
+    Background thread: recompute dashboard every 3 seconds.
+    This ensures updates even when Pathway's incremental triggers miss files.
+    """
+    while True:
+        try:
+            snapshot = compute_dashboard_snapshot()
+            _write_atomic_snapshot(snapshot)
+        except Exception as e:
+            print(f"[Recompute] Error: {e}")
+        time.sleep(3)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════
 def main():
     print("═" * 60)
-    print("  InfraWatch Nexus — Pathway Streaming Engine")
+    print("  InfraWatch Nexus — Pathway Streaming Engine v3.0")
     print(f"  Pathway {pw.__version__}")
+    print(f"  Dustbins: {len(DUSTBINS)}")
+    print(f"  Wards: {len(WARDS)}")
     print("═" * 60)
 
-    # ── Read raw files from watched directories ──────────────────────────
+    # Start weather poller
+    weather_thread = threading.Thread(target=_weather_poller, daemon=True)
+    weather_thread.start()
+    print("  Weather poller started")
+
+    # Start recomputation loop
+    recompute_thread = threading.Thread(target=_recompute_loop, daemon=True)
+    recompute_thread.start()
+    print("  Recompute loop started (3s interval)")
+
+    # Initial snapshot
+    try:
+        snapshot = compute_dashboard_snapshot()
+        _write_atomic_snapshot(snapshot)
+        print(f"  Initial snapshot written")
+    except Exception as e:
+        print(f"  Initial snapshot error: {e}")
+
+    # ── Pathway: watch all directories for changes ─────────────────────
     waste_raw   = _read_dir("waste",   WASTE_DIR)
     road_raw    = _read_dir("road",    ROAD_DIR)
     van_raw     = _read_dir("vans",    VAN_DIR)
     weather_raw = _read_dir("weather", WEATHER_DIR)
 
-    # ── Parse each file into per-unit aggregates ─────────────────────────
-    waste_agg = waste_raw.select(
-        agg_json=pw.apply(_compute_waste_file_agg, pw.this.data)
+    # When any file changes → trigger recomputation
+    waste_result = waste_raw.select(
+        result=pw.apply(_on_change_recompute, pw.this.data)
     )
-    van_agg = van_raw.select(
-        agg_json=pw.apply(_compute_van_file_agg, pw.this.data)
+    road_result = road_raw.select(
+        result=pw.apply(_on_change_recompute, pw.this.data)
     )
-    road_agg = road_raw.select(
-        agg_json=pw.apply(_compute_road_file_agg, pw.this.data)
+    van_result = van_raw.select(
+        result=pw.apply(_on_change_recompute, pw.this.data)
     )
-    weather_agg = weather_raw.select(
-        agg_json=pw.apply(_compute_weather_agg, pw.this.data)
+    weather_result = weather_raw.select(
+        result=pw.apply(_on_change_recompute, pw.this.data)
     )
 
-    # ── Write intermediate aggregates (for debugging / transparency) ────
-    pw.io.jsonlines.write(waste_agg,   os.path.join(OUTPUT_DIR, "waste_agg.jsonl"))
-    pw.io.jsonlines.write(road_agg,    os.path.join(OUTPUT_DIR, "road_agg.jsonl"))
-    pw.io.jsonlines.write(van_agg,     os.path.join(OUTPUT_DIR, "van_agg.jsonl"))
-    pw.io.jsonlines.write(weather_agg, os.path.join(OUTPUT_DIR, "weather_agg.jsonl"))
+    # Write Pathway processing log
+    pw.io.jsonlines.write(waste_result, os.path.join(OUTPUT_DIR, "pw_waste_log.jsonl"))
+    pw.io.jsonlines.write(road_result, os.path.join(OUTPUT_DIR, "pw_road_log.jsonl"))
+    pw.io.jsonlines.write(van_result, os.path.join(OUTPUT_DIR, "pw_van_log.jsonl"))
 
-    print("[Pathway] Pipeline configured.")
-    print(f"[Pathway] Output → {OUTPUT_DIR}")
-    print("[Pathway] Starting pw.run()...")
-
-    # ── Run ──────────────────────────────────────────────────────────────
+    print("\n  ▶ Pathway pipeline running. Watching for events...\n")
     pw.run()
 
 

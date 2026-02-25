@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfraWatch Nexus — Citizens' Portal</title>
+    <meta name="description" content="Live civic transparency interface for tracking waste and road infrastructure.">
+    <link rel="stylesheet" href="/static/citizen.css?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+    <!-- ── HEADER (Top Bar) ─────────────────────────────────────────── -->
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">🏙️</span>
+            <h1>InfraWatch <span class="accent">Nexus</span></h1>
+        </div>
+        <div class="nav-badges">
+            <span class="badge live" id="wsStatus">● Connected</span>
+            <span class="badge info" id="weatherBadge">🌧 0mm/hr</span>
+            <span class="badge" id="wasteIndexBadge">Waste Index: 0.0</span>
+        </div>
+    </header>
+
+    <!-- ── WORKSPACE ────────────────────────────────────────────────── -->
+    <div class="workspace">
+
+        <!-- MAIN MAP (70%+) -->
+        <section class="map-section">
+            <div id="map"></div>
+        </section>
+
+        <!-- SIDE PANEL (Tabs) -->
+        <aside class="side-panel">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="tab-report">Report Dustbin</button>
+                <button class="tab-btn" data-tab="tab-wards">Ward Status</button>
+                <button class="tab-btn" data-tab="tab-roads">Road Alerts</button>
+            </div>
+
+            <!-- TAB 1: REPORT DUSTBIN -->
+            <div class="tab-content active" id="tab-report">
+                <div id="reportFlow">
+                    <!-- Step 1: Upload Photo -->
+                    <div class="flow-step active" id="step1">
+                        <label class="upload-area" for="photoInput">
+                            <div class="icon">📷</div>
+                            <p>Upload Overflowing Dustbin Photo</p>
+                            <small>AI will detect the MCD ID automatically</small>
+                        </label>
+                        <input type="file" id="photoInput" accept="image/*" hidden>
+
+                        <img id="photoPreview" class="photo-preview" hidden>
+                        <button class="btn btn-primary" id="btnDetect" style="margin-bottom: 10px;" hidden>🔍 Extract
+                            Nearest ID</button>
+                        <div style="text-align: center; margin-top: 16px;">
+                            <button class="btn btn-outline" id="btnManual">Or Select Manually</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Confirmation / Overflow -->
+                    <div class="flow-step" id="step2">
+                        <div class="detected-box">
+                            <div class="detected-id" id="detectedId">MCD-W--</div>
+                            <div class="detected-street" id="detectedStreet">Location</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label">Overflow Level (1-5)</label>
+                            <div class="sev-grid" id="overflowGrid">
+                                <button class="sev-btn" data-val="1">1</button>
+                                <button class="sev-btn" data-val="2">2</button>
+                                <button class="sev-btn active" data-val="3">3</button>
+                                <button class="sev-btn" data-val="4">4</button>
+                                <button class="sev-btn" data-val="5">5</button>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" id="btnSubmitReport">Submit to Municipal System</button>
+                        <button class="btn btn-outline" id="btnBackStep2" style="margin-top: 8px;">Cancel</button>
+                    </div>
+
+                    <!-- Step 3: Manual Selection -->
+                    <div class="flow-step" id="step3">
+                        <div class="form-group">
+                            <label class="label">Select Ward</label>
+                            <select class="select" id="manualWard"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Select Dustbin</label>
+                            <select class="select" id="manualDustbin"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Overflow Level (1-5)</label>
+                            <div class="sev-grid" id="manualOverflowGrid">
+                                <button class="sev-btn" data-val="1">1</button>
+                                <button class="sev-btn" data-val="2">2</button>
+                                <button class="sev-btn active" data-val="3">3</button>
+                                <button class="sev-btn" data-val="4">4</button>
+                                <button class="sev-btn" data-val="5">5</button>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="btnSubmitManual">Submit to Municipal System</button>
+                        <button class="btn btn-outline" id="btnBackManual" style="margin-top: 8px;">Cancel</button>
+                    </div>
+
+                    <!-- Step 4: Success -->
+                    <div class="flow-step" id="step4">
+                        <div class="success-msg">
+                            <div class="icon">✅</div>
+                            <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Report accepted.</p>
+                            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 24px;">Updating
+                                municipal system. The map marker will reflect this shortly.</p>
+                            <button class="btn btn-outline" id="btnNewReport">Report Another</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: WARD STATUS -->
+            <div class="tab-content" id="tab-wards">
+                <div id="wardListContainer">
+                    <p class="empty-state">Loading ward data...</p>
+                </div>
+            </div>
+
+            <!-- TAB 3: ROAD ALERTS -->
+            <div class="tab-content" id="tab-roads">
+                <div id="roadListContainer">
+                    <p class="empty-state">No active road issues reported in the last 6 hours.</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="/static/citizen.js?v=2"></script>
+</body>
+
+</html>

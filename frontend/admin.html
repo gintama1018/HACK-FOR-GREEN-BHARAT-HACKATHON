@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfraWatch Nexus — Admin Control Room</title>
+    <meta name="description"
+        content="Municipal command center: manage road issues, dispatch trucks, monitor waste infrastructure.">
+    <link rel="stylesheet" href="/static/admin.css?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+    <!-- ── AUTH MODAL ─────────────────────────────────────────────── -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-modal">
+            <h2 style="font-family: 'Space Grotesk', sans-serif;">SYSTEM AUTHENTICATION</h2>
+            <p>Admin Control Room Access</p>
+            <input type="password" id="authTokenInput" class="auth-input" placeholder="Enter Bearer Token">
+            <button class="btn btn-primary" id="btnAuth">Verify Credentials</button>
+            <p id="authError" style="color: var(--danger); font-size: 12px; margin-top: 12px; height: 16px;"></p>
+        </div>
+    </div>
+
+    <!-- ── HEADER ─────────────────────────────────────────────────── -->
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">⚙️</span>
+            <h1>InfraWatch <span class="accent">COMMAND</span></h1>
+        </div>
+        <div class="nav-badges">
+            <span class="badge live" id="wsStatus">● CONNECTED</span>
+            <span class="badge" id="weatherBadge">🌧 0mm/hr</span>
+            <span class="badge info" style="cursor: pointer;" id="btnLogout">LOGOUT</span>
+        </div>
+    </header>
+
+    <!-- ── MAIN WORKSPACE (3 Columns) ─────────────────────────────── -->
+    <div class="workspace">
+
+        <!-- LEFT: PRIORITY QUEUE -->
+        <aside class="panel-left">
+            <div class="panel-header">
+                <span>Priority Dispatch Queue</span>
+                <span id="queueCount">0 Items</span>
+            </div>
+            <div class="queue-list" id="priorityList">
+                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">Syncing data
+                    stream...</div>
+            </div>
+        </aside>
+
+        <!-- CENTER: LIVE MAP -->
+        <section class="panel-center">
+            <div id="map"></div>
+        </section>
+
+        <!-- RIGHT: FORMS & ANALYTICS -->
+        <aside class="panel-right">
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="tab-van">Van Confirm</button>
+                <button class="tab-btn" data-tab="tab-road">Road Form</button>
+                <button class="tab-btn" data-tab="tab-analytics">Analytics</button>
+            </div>
+
+            <!-- TAB 1: VAN CONFIRMATION -->
+            <div class="tab-content active" id="tab-van">
+                <h3 style="font-size: 14px; margin-bottom: 16px;">Confirm Collection Dispatch</h3>
+                <div class="form-group">
+                    <label class="label">Ward</label>
+                    <select class="select" id="vanWard"></select>
+                </div>
+                <div class="form-group">
+                    <label class="label">Dustbin Asset ID</label>
+                    <select class="select" id="vanDustbin"></select>
+                </div>
+                <button class="btn btn-success" id="btnCollectionConfirm">Mark as Cleared</button>
+            </div>
+
+            <!-- TAB 2: ROAD ISSUE VERIFICATION -->
+            <div class="tab-content" id="tab-road">
+                <h3 style="font-size: 14px; margin-bottom: 16px;">Log Verified Road Issue</h3>
+
+                <div class="form-group">
+                    <label class="label">Originating Ward</label>
+                    <select class="select" id="roadWard"></select>
+                </div>
+                <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div>
+                        <label class="label">From Dustbin</label>
+                        <select class="select" id="roadFrom"></select>
+                    </div>
+                    <div>
+                        <label class="label">To Dustbin</label>
+                        <select class="select" id="roadTo"></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="label">Issue Type</label>
+                    <select class="select" id="roadType">
+                        <option value="pothole">🕳️ Pothole</option>
+                        <option value="waterlogging">🌊 Waterlogging</option>
+                        <option value="crack">⚡ Structural Crack</option>
+                        <option value="construction">🏗️ Active Construction</option>
+                        <option value="debris">🪨 Heavy Debris</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="label">Severity Rating</label>
+                    <div class="sev-grid" id="roadSevGrid">
+                        <button class="sev-btn" data-val="1">1</button>
+                        <button class="sev-btn" data-val="2">2</button>
+                        <button class="sev-btn active" data-val="3">3</button>
+                        <button class="sev-btn" data-val="4">4</button>
+                        <button class="sev-btn" data-val="5">5</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="btnRoadSubmit">Submit Road Issue</button>
+            </div>
+
+            <!-- TAB 3: WARD ANALYTICS -->
+            <div class="tab-content" id="tab-analytics">
+                <h3 style="font-size: 14px; margin-bottom: 16px;">Ward Risk Overview</h3>
+                <div id="wardOverview">
+                    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">Syncing
+                        data stream...</div>
+                </div>
+            </div>
+
+        </aside>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="/static/admin.js?v=2"></script>
+</body>
+
+</html>

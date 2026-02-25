@@ -1,430 +1,467 @@
 """
-InfraWatch Nexus — API Server
-==============================
-FastAPI intake layer.
-  - Receives waste / road / van reports via POST
-  - Writes each report as unique JSONL file → Pathway watches
-  - Reads Pathway output → caches in memory → serves to dashboard
-  - WebSocket for real-time push
+InfraWatch Nexus — API Server (Transport Layer)
+=================================================
+FastAPI transport layer. ZERO computation.
+  - Validates inputs against dustbin registry
+  - Writes strict event JSONs → Pathway watches
+  - Reads Pathway atomic dashboard output → caches in memory
+  - WebSocket broadcasts same state to both portals
+  - Gemini Vision for dustbin photo extraction
+  - Admin auth via bearer token
 """
 import asyncio
 import json
 import os
+import re
 import sys
 import threading
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Header, File, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config.settings import SERVER_HOST, SERVER_PORT, OUTPUT_DIR, REPORT_DIR
+from config.settings import SERVER_HOST, SERVER_PORT, OUTPUT_DIR, REPORT_DIR, DEDUP_WINDOW_MINUTES
 from config.wards import WARDS, ROAD_SEGMENTS, CITY_CENTER
+from config.dustbins import DUSTBINS, get_dustbin, get_ward_dustbins, validate_dustbin_id
 
-app = FastAPI(title="InfraWatch Nexus", version="2.0")
+app = FastAPI(title="InfraWatch Nexus", version="3.0")
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    import logging
+    logging.error(f"422 Error! URL: {request.url}")
+    logging.error(f"Headers: {request.headers}")
+    logging.error(f"Body: {exc.body}")
+    logging.error(f"Errors: {exc.errors()}")
+    return JSONResponse(status_code=422, content={"detail": exc.errors(), "body": exc.body})
 
 # ═══════════════════════════════════════════════════════════════════════════
-# DATA DIRECTORIES
+# CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WASTE_REPORT_DIR = os.path.join(PROJECT_ROOT, "data", "reports", "waste")
 ROAD_REPORT_DIR  = os.path.join(PROJECT_ROOT, "data", "reports", "road")
 VAN_LOG_DIR      = os.path.join(PROJECT_ROOT, "data", "reports", "vans")
+WEATHER_DIR      = os.path.join(PROJECT_ROOT, "data", "reports", "weather")
 PW_OUTPUT_DIR    = os.path.join(PROJECT_ROOT, "data", "output")
+FRONTEND_DIR     = os.path.join(PROJECT_ROOT, "frontend")
 
-for d in [WASTE_REPORT_DIR, ROAD_REPORT_DIR, VAN_LOG_DIR, PW_OUTPUT_DIR]:
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "INFRAWATCH_ADMIN_2026")
+GEMINI_KEY  = os.getenv("GEMINI_API_KEY", "")
+
+DUSTBIN_PATTERN = re.compile(r"MCD-W\d{2}-\d{3}")
+
+for d in [WASTE_REPORT_DIR, ROAD_REPORT_DIR, VAN_LOG_DIR, WEATHER_DIR, PW_OUTPUT_DIR]:
     os.makedirs(d, exist_ok=True)
 
-
 # ═══════════════════════════════════════════════════════════════════════════
-# GLOBAL STATE (cached from Pathway output)
+# GLOBAL STATE — cached from Pathway atomic output (NOT computed here)
 # ═══════════════════════════════════════════════════════════════════════════
 cached_state = {
-    "waste_risks": [],
-    "road_risks": [],
+    "dustbin_states": [],
+    "ward_risks": [],
+    "road_issues": [],
     "priority_queue": [],
     "city_waste_index": 0,
     "city_road_index": 0,
     "rainfall_mm_hr": 0.0,
     "timestamp": None,
-    # Data freshness metadata
-    "freshness": {
-        "weather_last_update": None,
-        "weather_source": "unknown",
-        "engine_started_at": None,
-        "last_report_ts": None,
-        "pathway_status": "waiting",
-    },
 }
 SERVER_STARTED_AT = datetime.now().isoformat()
 ws_clients = set()
 
+# ═══════════════════════════════════════════════════════════════════════════
+# IN-MEMORY DEDUP (O(1) per request, rebuilt on restart)
+# ═══════════════════════════════════════════════════════════════════════════
+_last_report: dict = {}  # dustbin_id → {"timestamp": str, "overflow": int}
+
+
+from datetime import timezone
+
+def _is_duplicate(dustbin_id: str, overflow_level: int) -> bool:
+    """Check if same dustbin was reported within DEDUP_WINDOW_MINUTES."""
+    now = datetime.now(timezone.utc)
+    if dustbin_id in _last_report:
+        last = _last_report[dustbin_id]
+        try:
+            last_ts = datetime.fromisoformat(last["timestamp"].replace("Z", "+00:00"))
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=timezone.utc)
+            if (now - last_ts).total_seconds() < DEDUP_WINDOW_MINUTES * 60:
+                # Merge: keep max overflow
+                _last_report[dustbin_id] = {
+                    "timestamp": now.isoformat(),
+                    "overflow": max(last["overflow"], overflow_level),
+                }
+                return True
+        except (ValueError, KeyError, TypeError):
+            pass
+    _last_report[dustbin_id] = {
+        "timestamp": now.isoformat(),
+        "overflow": overflow_level,
+    }
+    return False
+
+
+def _rebuild_dedup_cache():
+    """On restart, rebuild dedup cache from recent waste event files."""
+    cutoff = datetime.now() - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+    try:
+        for fname in os.listdir(WASTE_REPORT_DIR):
+            fpath = os.path.join(WASTE_REPORT_DIR, fname)
+            # Only check files modified within dedup window
+            if os.path.getmtime(fpath) < cutoff.timestamp():
+                continue
+            try:
+                with open(fpath, "r") as f:
+                    events = json.load(f)
+                if isinstance(events, list):
+                    for e in events:
+                        did = e.get("dustbin_id", "")
+                        if did:
+                            _last_report[did] = {
+                                "timestamp": e.get("timestamp", ""),
+                                "overflow": e.get("overflow_level", 1),
+                            }
+            except Exception:
+                continue
+    except FileNotFoundError:
+        pass
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# REQUEST MODELS
+# REQUEST MODELS (strict)
 # ═══════════════════════════════════════════════════════════════════════════
-
-class WasteReport(BaseModel):
-    bin_id: str
-    ward_id: str
+class DustbinConfirmReport(BaseModel):
+    dustbin_id: str
     overflow_level: int  # 1–5
-    reporter_type: str = "citizen"  # worker / citizen
 
-class RoadReport(BaseModel):
-    segment_id: str
-    ward_id: str
-    issue_type: str  # pothole / waterlogging / crack
-    severity: int    # 1–5
+class RoadIssueReport(BaseModel):
+    from_dustbin: str
+    to_dustbin: str
+    issue_type: str   # pothole / waterlogging / crack / construction
+    severity: int     # 1–5
 
-class VanUpdate(BaseModel):
-    van_id: str
-    ward_id: str
-    route_status: str = "active"  # active / completed
-
-class AdvisoryRequest(BaseModel):
-    target_id: str       # ward_id or segment_id
-    target_type: str     # "waste" or "road"
-    question: Optional[str] = None
+class VanCollectionReport(BaseModel):
+    dustbin_id: str
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# REPORT INTAKE ENDPOINTS (write unique files → Pathway watches)
+# HELPERS — write strict event files
 # ═══════════════════════════════════════════════════════════════════════════
-
-def _write_report(directory: str, prefix: str, data: dict):
-    """Write a single report as a unique JSON file. One report per file."""
+def _write_event(directory: str, prefix: str, data: dict) -> str:
+    """Write a single event as a unique JSON file. Strict schema."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     uid = uuid.uuid4().hex[:8]
     filename = f"{prefix}_{ts}_{uid}.json"
     filepath = os.path.join(directory, filename)
     with open(filepath, "w") as f:
-        json.dump([data], f)  # Always as array (Pathway expects list)
+        json.dump([data], f)  # Array format for Pathway
     return filename
 
 
-@app.post("/api/report/waste")
-async def submit_waste_report(report: WasteReport):
-    """Submit a waste bin overflow report."""
-    data = {
-        "report_id": f"WR-{uuid.uuid4().hex[:8]}",
-        "bin_id": report.bin_id,
-        "ward_id": report.ward_id,
-        "overflow_level": min(5, max(1, report.overflow_level)),
-        "timestamp": datetime.now().isoformat(),
-        "reporter_type": report.reporter_type,
-    }
-    filename = _write_report(WASTE_REPORT_DIR, "waste", data)
-    return JSONResponse(content={
-        "status": "accepted",
-        "report_id": data["report_id"],
-        "file": filename,
-        "message": f"Waste report for ward {report.ward_id} accepted.",
-    })
-
-
-@app.post("/api/report/road")
-async def submit_road_report(report: RoadReport):
-    """Submit a road issue report."""
-    data = {
-        "report_id": f"RR-{uuid.uuid4().hex[:8]}",
-        "segment_id": report.segment_id,
-        "ward_id": report.ward_id,
-        "issue_type": report.issue_type,
-        "severity": min(5, max(1, report.severity)),
-        "timestamp": datetime.now().isoformat(),
-    }
-    filename = _write_report(ROAD_REPORT_DIR, "road", data)
-    return JSONResponse(content={
-        "status": "accepted",
-        "report_id": data["report_id"],
-        "file": filename,
-        "message": f"Road report for segment {report.segment_id} accepted.",
-    })
-
-
-@app.post("/api/van/update")
-async def submit_van_update(update: VanUpdate):
-    """Log a van collection event."""
-    data = {
-        "van_id": update.van_id,
-        "ward_id": update.ward_id,
-        "last_collection_time": datetime.now().isoformat(),
-        "route_status": update.route_status,
-    }
-    filename = _write_report(VAN_LOG_DIR, "van", data)
-    return JSONResponse(content={
-        "status": "accepted",
-        "van_id": update.van_id,
-        "file": filename,
-        "message": f"Van {update.van_id} update for ward {update.ward_id} logged.",
-    })
+def _check_admin_token(authorization: Optional[str]) -> bool:
+    """Strict admin token check."""
+    if not authorization:
+        return False
+    return authorization == f"Bearer {ADMIN_TOKEN}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# PATHWAY OUTPUT READER (background thread — caches in memory)
+# CITIZEN ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _read_latest_agg(filename: str) -> str:
-    """Read the last line of a Pathway JSONL output file."""
-    filepath = os.path.join(PW_OUTPUT_DIR, filename)
-    if not os.path.exists(filepath):
-        return "[]"
+@app.post("/api/report/dustbin/detect")
+async def detect_dustbin_from_photo(file: UploadFile = File(...)):
+    """
+    Step 1 of citizen flow: Upload photo → Gemini Vision → extract dustbin ID.
+    Returns detected ID for user confirmation. Does NOT create event.
+    """
+    if not GEMINI_KEY:
+        return JSONResponse(content={
+            "detected_id": None,
+            "fallback": True,
+            "message": "AI not configured. Please select dustbin manually.",
+            "dustbins": {k: {"street": v["street"], "ward_id": v["ward_id"]}
+                         for k, v in DUSTBINS.items()},
+        })
+
     try:
-        with open(filepath, "r") as f:
-            lines = f.readlines()
-        if not lines:
-            return "[]"
-        last = json.loads(lines[-1])
-        return last.get("agg_json", "[]")
-    except Exception:
-        return "[]"
+        import requests
+        import base64
+        
+        image_bytes = await file.read()
+        img_data = base64.b64encode(image_bytes).decode('utf-8')
+        
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
+        headers = {'Content-Type': 'application/json'}
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": "Look at this image of a dustbin/waste bin. Extract the dustbin identification number or label visible on it. The format should be like MCD-W06-003. Return ONLY the ID string, nothing else."},
+                    {"inline_data": {"mime_type": file.content_type or "image/jpeg", "data": img_data}}
+                ]
+            }]
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        response.raise_for_status()
+        resp_json = response.json()
+        
+        try:
+            raw_text = resp_json['candidates'][0]['content']['parts'][0]['text'].strip()
+        except (KeyError, IndexError):
+            raw_text = ""
 
+        # Strict regex extraction
+        match = DUSTBIN_PATTERN.search(raw_text)
+        if match:
+            candidate = match.group(0)
+            if validate_dustbin_id(candidate):
+                dustbin = get_dustbin(candidate)
+                return JSONResponse(content={
+                    "detected_id": candidate,
+                    "fallback": False,
+                    "street": dustbin["street"],
+                    "ward_id": dustbin["ward_id"],
+                    "message": f"Detected: {candidate} — {dustbin['street']}. Please confirm.",
+                })
 
-def _compute_dashboard_state():
-    """
-    Read all Pathway outputs, compute combined risk + priority.
-    Mirrors the logic in pathway_engine._compute_all_risks but runs server-side
-    so we can enrich with ward/segment names from config.
-    """
-    from config.settings import (
-        WASTE_RISK_WEIGHTS, ROAD_RISK_WEIGHTS,
-        WASTE_NORM, ROAD_NORM, STATE_BANDS,
-    )
-
-    def _norm(val, threshold):
-        if threshold <= 0: return 0.0
-        return min(1.0, max(0.0, val / threshold))
-
-    def _classify(score):
-        for band in STATE_BANDS:
-            if band["min"] <= score <= band["max"]:
-                return band["label"]
-        return "Normal"
-
-    def _color(state):
-        for band in STATE_BANDS:
-            if band["label"] == state:
-                return band["color"]
-        return "#16A34A"
-
-    # Read Pathway aggregates
-    try: waste_data = {e["ward_id"]: e for e in json.loads(_read_latest_agg("waste_agg.jsonl"))}
-    except: waste_data = {}
-
-    try: van_data = {e["ward_id"]: e for e in json.loads(_read_latest_agg("van_agg.jsonl"))}
-    except: van_data = {}
-
-    try: road_data = {e["segment_id"]: e for e in json.loads(_read_latest_agg("road_agg.jsonl"))}
-    except: road_data = {}
-
-    try: weather = json.loads(_read_latest_agg("weather_agg.jsonl"))
-    except: weather = {}
-
-    rainfall = weather.get("rainfall_mm_hr", 0.0) if isinstance(weather, dict) else 0.0
-    n_rain = _norm(rainfall, WASTE_NORM["rainfall_mm_hr"])
-
-    # Freshness metadata from Pathway weather output
-    weather_ts = weather.get("weather_ts", "") if isinstance(weather, dict) else ""
-    engine_started = weather.get("engine_started_at", "") if isinstance(weather, dict) else ""
-    weather_source = weather.get("weather_source", "unknown") if isinstance(weather, dict) else "unknown"
-
-    # Track latest report timestamp across all streams
-    latest_report_ts = ""
-    for w in waste_data.values():
-        t = w.get("latest_ts", "")
-        if t > latest_report_ts:
-            latest_report_ts = t
-
-    # ── Waste Risks ──
-    waste_risks = []
-    for wid, ward in WARDS.items():
-        w = waste_data.get(wid, {})
-        v = van_data.get(wid, {})
-
-        report_count = w.get("report_count", 0)
-        avg_overflow = w.get("avg_overflow", 0.0)
-        delay_hr = v.get("collection_delay_hr", 6.0)
-        active_vans = v.get("active_vans", 0)
-
-        n_reports  = _norm(report_count, WASTE_NORM["report_count_2hr"])
-        n_overflow = _norm(avg_overflow,  WASTE_NORM["overflow_level"])
-        n_delay    = _norm(delay_hr,     WASTE_NORM["collection_delay_hr"])
-
-        score = (
-            n_reports  * WASTE_RISK_WEIGHTS["report_freq"]
-            + n_overflow * WASTE_RISK_WEIGHTS["overflow_severity"]
-            + n_delay    * WASTE_RISK_WEIGHTS["collection_delay"]
-            + n_rain     * WASTE_RISK_WEIGHTS["rainfall"]
-        ) * 100
-        score = min(100, max(0, round(score)))
-        state = _classify(score)
-
-        waste_risks.append({
-            "ward_id": wid,
-            "name": ward["name"],
-            "zone": ward["zone"],
-            "lat": ward["lat"],
-            "lng": ward["lng"],
-            "bins": ward["bins"],
-            "risk_score": score,
-            "state": state,
-            "color": _color(state),
-            "report_count": report_count,
-            "avg_overflow": avg_overflow,
-            "collection_delay_hr": round(delay_hr, 1),
-            "active_vans": active_vans,
-            "type": "waste",
+        # No valid ID found → fallback
+        return JSONResponse(content={
+            "detected_id": None,
+            "fallback": True,
+            "message": "Could not detect dustbin ID. Please select manually.",
+            "dustbins": {k: {"street": v["street"], "ward_id": v["ward_id"]}
+                         for k, v in DUSTBINS.items()},
         })
 
-    # ── Road Risks ──
-    road_risks = []
-    for sid, seg in ROAD_SEGMENTS.items():
-        r = road_data.get(sid, {})
-
-        report_count = r.get("report_count", 0)
-        avg_severity = r.get("avg_severity", 0.0)
-
-        n_reports  = _norm(report_count, ROAD_NORM["report_count_3hr"])
-        n_severity = _norm(avg_severity,  ROAD_NORM["severity"])
-
-        score = (
-            n_reports  * ROAD_RISK_WEIGHTS["report_density"]
-            + n_severity * ROAD_RISK_WEIGHTS["severity"]
-            + n_rain     * ROAD_RISK_WEIGHTS["rainfall"]
-        ) * 100
-        score = min(100, max(0, round(score)))
-        state = _classify(score)
-
-        road_risks.append({
-            "segment_id": sid,
-            "name": seg["name"],
-            "ward_id": seg["ward_id"],
-            "type_road": seg["type"],
-            "lat": seg["lat"],
-            "lng": seg["lng"],
-            "risk_score": score,
-            "state": state,
-            "color": _color(state),
-            "report_count": report_count,
-            "avg_severity": avg_severity,
-            "type": "road",
+    except Exception as e:
+        return JSONResponse(content={
+            "detected_id": None,
+            "fallback": True,
+            "message": f"AI detection failed. Please select manually.",
+            "dustbins": {k: {"street": v["street"], "ward_id": v["ward_id"]}
+                         for k, v in DUSTBINS.items()},
         })
 
-    # ── Priority Queue (Critical waste first, then road) ──
-    STATE_PRIORITY = {"Critical": 0, "Warning": 1, "Elevated": 2, "Normal": 3}
-    priority = []
-    for wr in waste_risks:
-        if wr["state"] != "Normal":
-            priority.append({
-                "id": wr["ward_id"],
-                "name": wr["name"],
-                "type": "waste",
-                "risk_score": wr["risk_score"],
-                "state": wr["state"],
-                "color": wr["color"],
-                "sort_key": STATE_PRIORITY[wr["state"]] * 1000 - wr["risk_score"],
-                "type_priority": 0,
-            })
-    for rr in road_risks:
-        if rr["state"] != "Normal":
-            priority.append({
-                "id": rr["segment_id"],
-                "name": rr["name"],
-                "type": "road",
-                "risk_score": rr["risk_score"],
-                "state": rr["state"],
-                "color": rr["color"],
-                "sort_key": STATE_PRIORITY[rr["state"]] * 1000 - rr["risk_score"],
-                "type_priority": 1,
-            })
-    priority.sort(key=lambda x: (x["type_priority"], x["sort_key"]))
 
-    city_waste = round(sum(w["risk_score"] for w in waste_risks) / max(1, len(waste_risks)), 1)
-    city_road  = round(sum(r["risk_score"] for r in road_risks) / max(1, len(road_risks)), 1)
+@app.post("/api/report/dustbin/confirm")
+async def confirm_dustbin_report(report: DustbinConfirmReport):
+    """
+    Step 2 of citizen flow: User confirmed dustbin ID → write waste event.
+    Validates against registry. Dedup check.
+    """
+    # Validate dustbin exists
+    if not validate_dustbin_id(report.dustbin_id):
+        return JSONResponse(
+            content={"error": f"Invalid dustbin ID: {report.dustbin_id}"},
+            status_code=400,
+        )
 
-    return {
-        "waste_risks": waste_risks,
-        "road_risks": road_risks,
-        "priority_queue": priority[:20],
-        "city_waste_index": city_waste,
-        "city_road_index": city_road,
-        "rainfall_mm_hr": rainfall,
+    # Validate overflow level
+    overflow = min(5, max(1, report.overflow_level))
+
+    # Dedup check
+    if _is_duplicate(report.dustbin_id, overflow):
+        return JSONResponse(content={
+            "status": "merged",
+            "dustbin_id": report.dustbin_id,
+            "message": f"Report merged with recent submission for {report.dustbin_id}.",
+        })
+
+    # Build strict event
+    dustbin = get_dustbin(report.dustbin_id)
+    event = {
+        "event_id": f"WR-{uuid.uuid4().hex[:8]}",
+        "dustbin_id": report.dustbin_id,
+        "ward_id": dustbin["ward_id"],
+        "overflow_level": overflow,
         "timestamp": datetime.now().isoformat(),
-        "freshness": {
-            "weather_last_update": weather_ts,
-            "weather_source": weather_source,
-            "engine_started_at": engine_started,
-            "last_report_ts": latest_report_ts or None,
-            "pathway_status": "streaming" if engine_started else "waiting",
-            "server_started_at": SERVER_STARTED_AT,
-        },
+        "source": "citizen",
     }
 
-
-def _cache_updater():
-    """Background thread: re-read Pathway outputs every 3 seconds."""
-    global cached_state
-    while True:
-        try:
-            cached_state = _compute_dashboard_state()
-        except Exception as e:
-            print(f"[Cache] Error: {e}")
-        time.sleep(3)
+    filename = _write_event(WASTE_REPORT_DIR, "waste", event)
+    return JSONResponse(content={
+        "status": "accepted",
+        "event_id": event["event_id"],
+        "dustbin_id": report.dustbin_id,
+        "street": dustbin["street"],
+        "file": filename,
+        "message": f"Report for {report.dustbin_id} ({dustbin['street']}) accepted.",
+    })
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# REST ENDPOINTS (read from cache — fast)
+# ADMIN ENDPOINTS (require token)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/report/road-issue")
+async def report_road_issue(
+    report: RoadIssueReport,
+    authorization: Optional[str] = Header(None),
+):
+    """Admin: Report road issue between two dustbins. Requires auth token."""
+    if not _check_admin_token(authorization):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+
+    # Validate both dustbin IDs
+    if not validate_dustbin_id(report.from_dustbin):
+        return JSONResponse(
+            content={"error": f"Invalid dustbin ID: {report.from_dustbin}"},
+            status_code=400,
+        )
+    if not validate_dustbin_id(report.to_dustbin):
+        return JSONResponse(
+            content={"error": f"Invalid dustbin ID: {report.to_dustbin}"},
+            status_code=400,
+        )
+
+    from_bin = get_dustbin(report.from_dustbin)
+    to_bin = get_dustbin(report.to_dustbin)
+
+    # Validate same ward
+    if from_bin["ward_id"] != to_bin["ward_id"]:
+        return JSONResponse(
+            content={"error": "Dustbins must be in the same ward for road issue reporting."},
+            status_code=400,
+        )
+
+    # Validate issue type
+    valid_types = {"pothole", "waterlogging", "crack", "construction", "debris"}
+    if report.issue_type not in valid_types:
+        return JSONResponse(
+            content={"error": f"Invalid issue_type. Must be one of: {valid_types}"},
+            status_code=400,
+        )
+
+    severity = min(5, max(1, report.severity))
+
+    event = {
+        "event_id": f"RI-{uuid.uuid4().hex[:8]}",
+        "from_dustbin": report.from_dustbin,
+        "to_dustbin": report.to_dustbin,
+        "ward_id": from_bin["ward_id"],
+        "issue_type": report.issue_type,
+        "severity": severity,
+        "timestamp": datetime.now().isoformat(),
+        "source": "driver",
+    }
+
+    filename = _write_event(ROAD_REPORT_DIR, "road", event)
+    return JSONResponse(content={
+        "status": "accepted",
+        "event_id": event["event_id"],
+        "from_dustbin": report.from_dustbin,
+        "to_dustbin": report.to_dustbin,
+        "file": filename,
+        "message": f"Road issue ({report.issue_type}) between {report.from_dustbin} and {report.to_dustbin} reported.",
+    })
+
+
+@app.post("/api/van/collection")
+async def report_van_collection(
+    report: VanCollectionReport,
+    authorization: Optional[str] = Header(None),
+):
+    """Admin: Van confirmed collection at a dustbin. Requires auth token."""
+    if not _check_admin_token(authorization):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+
+    if not validate_dustbin_id(report.dustbin_id):
+        return JSONResponse(
+            content={"error": f"Invalid dustbin ID: {report.dustbin_id}"},
+            status_code=400,
+        )
+
+    dustbin = get_dustbin(report.dustbin_id)
+    event = {
+        "event_id": f"VC-{uuid.uuid4().hex[:8]}",
+        "dustbin_id": report.dustbin_id,
+        "ward_id": dustbin["ward_id"],
+        "timestamp": datetime.now().isoformat(),
+        "source": "driver",
+        "event_type": "collection_confirmed",
+    }
+
+    filename = _write_event(VAN_LOG_DIR, "van", event)
+
+    # Clear dedup cache for this dustbin
+    _last_report.pop(report.dustbin_id, None)
+
+    return JSONResponse(content={
+        "status": "accepted",
+        "event_id": event["event_id"],
+        "dustbin_id": report.dustbin_id,
+        "file": filename,
+        "message": f"Collection at {report.dustbin_id} ({dustbin['street']}) confirmed.",
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# READ-ONLY ENDPOINTS (serve cached Pathway output — NO computation)
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    """Full dashboard state — cached from Pathway output."""
+    """Full dashboard state — cached from Pathway atomic output. No computation here."""
     return JSONResponse(content=cached_state)
 
-@app.get("/api/wards")
-async def get_wards():
-    """Ward risk summaries."""
+
+@app.get("/api/dustbins")
+async def get_dustbins():
+    """Return dustbin registry with live states from Pathway output."""
+    # Merge static registry with live states
+    live_states = {}
+    for ds in cached_state.get("dustbin_states", []):
+        live_states[ds.get("dustbin_id", "")] = ds
+
+    result = {}
+    for did, info in DUSTBINS.items():
+        live = live_states.get(did, {})
+        result[did] = {
+            **info,
+            "state": live.get("state", "Clear"),
+            "report_count": live.get("report_count", 0),
+            "overflow_level": live.get("overflow_level", 0),
+        }
+
+    return JSONResponse(content={"dustbins": result})
+
+
+@app.get("/api/config")
+async def get_config():
+    """Ward and dustbin config for frontend map setup."""
     return JSONResponse(content={
-        "wards": cached_state.get("waste_risks", []),
-        "city_waste_index": cached_state.get("city_waste_index", 0),
-        "timestamp": cached_state.get("timestamp"),
+        "wards": {k: {**v} for k, v in WARDS.items()},
+        "dustbins": {k: {**v} for k, v in DUSTBINS.items()},
+        "city_center": CITY_CENTER,
     })
 
-@app.get("/api/segments")
-async def get_segments():
-    """Road segment risk summaries."""
-    return JSONResponse(content={
-        "segments": cached_state.get("road_risks", []),
-        "city_road_index": cached_state.get("city_road_index", 0),
-        "timestamp": cached_state.get("timestamp"),
-    })
 
 @app.get("/api/priority")
 async def get_priority():
-    """Unified priority queue."""
+    """Priority queue — served from Pathway output."""
     return JSONResponse(content={
         "priority_queue": cached_state.get("priority_queue", []),
         "timestamp": cached_state.get("timestamp"),
     })
 
-@app.get("/api/config")
-async def get_config():
-    """Ward and segment config for frontend map."""
-    return JSONResponse(content={
-        "wards": {k: {**v} for k, v in WARDS.items()},
-        "segments": {k: {**v} for k, v in ROAD_SEGMENTS.items()},
-        "city_center": CITY_CENTER,
-    })
 
 @app.get("/api/weather")
 async def get_weather():
-    """Current weather data."""
+    """Current weather — from Pathway output."""
     return JSONResponse(content={
         "rainfall_mm_hr": cached_state.get("rainfall_mm_hr", 0),
         "timestamp": cached_state.get("timestamp"),
@@ -432,126 +469,49 @@ async def get_weather():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# LLM ADVISORY (optional — template fallback)
+# PATHWAY OUTPUT READER (background thread — reads atomic snapshot)
 # ═══════════════════════════════════════════════════════════════════════════
 
-@app.post("/api/ask")
-async def get_advisory(req: AdvisoryRequest):
-    """Generate structured advisory for a ward or segment."""
-    # Find the target
-    target = None
-    if req.target_type == "waste":
-        target = next((w for w in cached_state.get("waste_risks", []) if w["ward_id"] == req.target_id), None)
-    else:
-        target = next((r for r in cached_state.get("road_risks", []) if r["segment_id"] == req.target_id), None)
-
-    if not target:
-        return JSONResponse(content={"error": "Target not found"}, status_code=404)
-
-    # Structured advisory (no hallucination — deterministic logic)
-    if req.target_type == "waste":
-        advisory = {
-            "target": target.get("name", req.target_id),
-            "type": "Waste Management",
-            "risk_level": target["state"],
-            "risk_score": target["risk_score"],
-            "urgency": _urgency(target["state"]),
-            "primary_factor": _waste_cause(target),
-            "action": _waste_action(target),
-            "justification": _waste_justification(target),
-            "metrics": {
-                "report_count": target.get("report_count", 0),
-                "avg_overflow": target.get("avg_overflow", 0),
-                "collection_delay_hr": target.get("collection_delay_hr", 0),
-                "active_vans": target.get("active_vans", 0),
-            },
-        }
-    else:
-        advisory = {
-            "target": target.get("name", req.target_id),
-            "type": "Road Maintenance",
-            "risk_level": target["state"],
-            "risk_score": target["risk_score"],
-            "urgency": _urgency(target["state"]),
-            "primary_factor": _road_cause(target),
-            "action": _road_action(target),
-            "justification": _road_justification(target),
-            "metrics": {
-                "report_count": target.get("report_count", 0),
-                "avg_severity": target.get("avg_severity", 0),
-            },
-        }
-
-    return JSONResponse(content={"advisory": advisory})
+def _read_dashboard_snapshot():
+    """Read last complete line from Pathway's atomic dashboard.jsonl."""
+    filepath = os.path.join(PW_OUTPUT_DIR, "dashboard.jsonl")
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, "r") as f:
+            lines = f.readlines()
+        if not lines:
+            return None
+        # Read last non-empty line (atomic snapshot)
+        for line in reversed(lines):
+            line = line.strip()
+            if line:
+                return json.loads(line)
+        return None
+    except Exception:
+        return None
 
 
-def _urgency(state):
-    return {"Critical": "Immediate", "Warning": "High", "Elevated": "Moderate", "Normal": "Low"}.get(state, "Low")
-
-def _waste_cause(t):
-    causes = []
-    if t.get("collection_delay_hr", 0) >= 8:
-        causes.append(f"{t['collection_delay_hr']}hr collection delay")
-    if t.get("avg_overflow", 0) >= 3:
-        causes.append(f"overflow severity avg {t['avg_overflow']}")
-    if t.get("report_count", 0) >= 5:
-        causes.append(f"{t['report_count']} reports in window")
-    return causes[0] if causes else "Baseline monitoring — no significant triggers"
-
-def _waste_justification(t):
-    parts = []
-    if t.get("collection_delay_hr", 0) >= 6:
-        parts.append(f"Collection delay of {t['collection_delay_hr']}hr exceeds 6hr threshold.")
-    if t.get("avg_overflow", 0) >= 3:
-        parts.append(f"Average overflow level {t['avg_overflow']}/5 indicates bins nearing capacity.")
-    if t.get("report_count", 0) >= 3:
-        parts.append(f"{t['report_count']} reports in rolling window show active issue.")
-    if t.get("active_vans", 0) == 0:
-        parts.append("No active vans in ward — response capacity at zero.")
-    return " ".join(parts) if parts else "Risk within normal parameters."
-
-def _waste_action(t):
-    if t["state"] == "Critical":
-        return f"Dispatch {max(2, t.get('active_vans', 0) + 1)} vans immediately. Clear overflow bins within 1 hour."
-    if t["state"] == "Warning":
-        return "Schedule additional collection run within 2 hours."
-    if t["state"] == "Elevated":
-        return "Monitor. Consider rescheduling next collection earlier."
-    return "No action required."
-
-def _road_cause(t):
-    causes = []
-    if t.get("avg_severity", 0) >= 3:
-        causes.append(f"avg severity {t['avg_severity']}/5")
-    if t.get("report_count", 0) >= 3:
-        causes.append(f"{t['report_count']} reports in window")
-    return causes[0] if causes else "Baseline monitoring — no significant triggers"
-
-def _road_justification(t):
-    parts = []
-    if t.get("avg_severity", 0) >= 3:
-        parts.append(f"Average severity {t['avg_severity']}/5 indicates structural concern.")
-    if t.get("report_count", 0) >= 3:
-        parts.append(f"{t['report_count']} reports in rolling window — repeat issue.")
-    return " ".join(parts) if parts else "Risk within normal parameters."
-
-def _road_action(t):
-    if t["state"] == "Critical":
-        return "Deploy maintenance crew immediately. Mark for emergency repair."
-    if t["state"] == "Warning":
-        return "Schedule inspection within 24 hours."
-    if t["state"] == "Elevated":
-        return "Add to weekly maintenance schedule."
-    return "No action required."
+def _cache_updater():
+    """Background thread: re-read Pathway atomic output every 3 seconds."""
+    global cached_state
+    while True:
+        try:
+            snapshot = _read_dashboard_snapshot()
+            if snapshot:
+                cached_state = snapshot
+        except Exception as e:
+            print(f"[Cache] Error: {e}")
+        time.sleep(3)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# WEBSOCKET (real-time push)
+# WEBSOCKET (same state → both portals)
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.websocket("/ws")
 async def websocket_stream(websocket: WebSocket):
-    """Push dashboard state to connected clients every 4 seconds."""
+    """Push same dashboard state to ALL connected clients every 4 seconds."""
     await websocket.accept()
     ws_clients.add(websocket)
     try:
@@ -565,15 +525,24 @@ async def websocket_stream(websocket: WebSocket):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# STATIC FILES & DASHBOARD
+# STATIC FILES & PAGE SERVING
 # ═══════════════════════════════════════════════════════════════════════════
 
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
-
 @app.get("/")
-async def serve_dashboard():
-    with open(os.path.join(FRONTEND_DIR, "index.html"), "r", encoding="utf-8") as f:
+async def serve_citizen_portal():
+    """Serve Citizens' Portal."""
+    filepath = os.path.join(FRONTEND_DIR, "citizen.html")
+    with open(filepath, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
+
+
+@app.get("/admin")
+async def serve_admin_portal():
+    """Serve Admin Portal."""
+    filepath = os.path.join(FRONTEND_DIR, "admin.html")
+    with open(filepath, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
@@ -584,12 +553,17 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 @app.on_event("startup")
 async def startup():
-    print("═" * 50)
-    print("  InfraWatch Nexus — API Server v2.0")
-    print("═" * 50)
-    print(f"  Reports in  : {REPORT_DIR}")
-    print(f"  Pathway out : {PW_OUTPUT_DIR}")
-    print(f"  Dashboard   : http://localhost:{SERVER_PORT}")
+    print("═" * 55)
+    print("  InfraWatch Nexus — API Server v3.0 (Transport Only)")
+    print("═" * 55)
+    print(f"  Citizens Portal : http://localhost:{SERVER_PORT}/")
+    print(f"  Admin Portal    : http://localhost:{SERVER_PORT}/admin")
+    print(f"  Dustbins loaded : {len(DUSTBINS)}")
+    print(f"  Gemini AI       : {'✓ Configured' if GEMINI_KEY else '✗ Manual fallback'}")
+    print(f"  Pathway output  : {PW_OUTPUT_DIR}")
+
+    _rebuild_dedup_cache()
+    print(f"  Dedup cache     : {len(_last_report)} recent entries")
 
     # Start background cache updater
     t = threading.Thread(target=_cache_updater, daemon=True)
