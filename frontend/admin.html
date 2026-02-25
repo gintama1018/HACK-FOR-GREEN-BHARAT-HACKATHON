@@ -69,6 +69,7 @@
                 <button class="tab-btn active" data-tab="tab-van">Van Confirm</button>
                 <button class="tab-btn" data-tab="tab-road">Road Form</button>
                 <button class="tab-btn" data-tab="tab-analytics">Analytics</button>
+                <button class="tab-btn" data-tab="tab-forecast">🔮 Forecast</button>
             </div>
 
             <!-- TAB 1: VAN CONFIRMATION -->
@@ -133,6 +134,17 @@
                     <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">Syncing
                         data stream...</div>
                 </div>
+            </div>
+
+            <!-- TAB 4: PREDICTIVE FORECAST -->
+            <div class="tab-content" id="tab-forecast">
+                <h3 style="font-size: 14px; margin-bottom: 16px;">🔮 3-Day Predictive Risk Forecast</h3>
+                <div id="forecastContainer">
+                    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">Click to
+                        load forecast...</div>
+                </div>
+                <button class="btn btn-primary" id="btnLoadForecast" style="margin-top: 12px; width: 100%;">Load
+                    Forecast</button>
             </div>
 
         </aside>

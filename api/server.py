@@ -465,6 +465,89 @@ async def health_check():
     })
 
 
+@app.get("/api/forecast")
+async def get_risk_forecast():
+    """
+    Predictive Risk Forecast: 3-day ward-level risk projection.
+    Combines WeatherAPI forecast with current report density to predict
+    which wards will become critical before it happens.
+    """
+    import requests as req
+    wx_key = os.getenv("WX_API_KEY", "")
+    forecast_data = []
+
+    # Fetch 3-day forecast from WeatherAPI
+    try:
+        resp = req.get(
+            "http://api.weatherapi.com/v1/forecast.json",
+            params={"key": wx_key, "q": "Delhi", "days": 3, "aqi": "no"},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        days = resp.json().get("forecast", {}).get("forecastday", [])
+    except Exception:
+        days = []
+
+    # Current report counts per ward from cached Pathway state
+    ward_report_counts = {}
+    for ds in cached_state.get("dustbin_states", []):
+        wid = ds.get("ward_id", "")
+        ward_report_counts[wid] = ward_report_counts.get(wid, 0) + ds.get("report_count", 0)
+
+    # Build per-ward, per-day predictive risk
+    for day_data in days:
+        date = day_data.get("date", "")
+        day_info = day_data.get("day", {})
+        total_precip_mm = day_info.get("totalprecip_mm", 0)
+        max_wind_kph = day_info.get("maxwind_kph", 0)
+        condition = day_info.get("condition", {}).get("text", "Clear")
+
+        # Weather severity multiplier (0.0 to 1.0)
+        rain_factor = min(1.0, total_precip_mm / 50.0)  # 50mm = max severity
+        wind_factor = min(1.0, max_wind_kph / 80.0)
+        weather_severity = round((rain_factor * 0.7 + wind_factor * 0.3), 2)
+
+        ward_forecasts = []
+        for wid, winfo in WARDS.items():
+            current_reports = ward_report_counts.get(wid, 0)
+            # Base risk = current report density (0-1 scale, 10 reports = max)
+            base_risk = min(1.0, current_reports / 10.0)
+            # Predicted risk = base risk amplified by weather forecast
+            predicted_risk = round(min(1.0, base_risk + weather_severity * 0.6), 2)
+            # Risk level label
+            if predicted_risk >= 0.7:
+                level = "CRITICAL"
+            elif predicted_risk >= 0.4:
+                level = "ELEVATED"
+            else:
+                level = "LOW"
+
+            ward_forecasts.append({
+                "ward_id": wid,
+                "ward_name": winfo["name"],
+                "current_reports": current_reports,
+                "predicted_risk": predicted_risk,
+                "risk_level": level,
+            })
+
+        # Sort by predicted risk descending
+        ward_forecasts.sort(key=lambda w: w["predicted_risk"], reverse=True)
+
+        forecast_data.append({
+            "date": date,
+            "condition": condition,
+            "total_precip_mm": total_precip_mm,
+            "max_wind_kph": max_wind_kph,
+            "weather_severity": weather_severity,
+            "wards": ward_forecasts,
+        })
+
+    return JSONResponse(content={
+        "forecast": forecast_data,
+        "generated_at": datetime.now().isoformat(),
+    })
+
+
 @app.get("/api/dashboard")
 async def get_dashboard():
     """Full dashboard state — cached from Pathway atomic output. No computation here."""

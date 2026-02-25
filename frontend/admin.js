@@ -307,3 +307,59 @@ function showToast(msg, type = 'info') {
     c.appendChild(t);
     setTimeout(() => t.remove(), 4000);
 }
+
+// ── PREDICTIVE RISK FORECAST ───────────────────────────────────────
+async function loadForecast() {
+    const container = document.getElementById('forecastContainer');
+    const btn = document.getElementById('btnLoadForecast');
+    btn.innerHTML = 'Loading...';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/forecast`);
+        const data = await resp.json();
+
+        if (!data.forecast || data.forecast.length === 0) {
+            container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);">No forecast data available.</div>';
+            return;
+        }
+
+        let html = '';
+        for (const day of data.forecast) {
+            html += `<div style="margin-bottom: 16px; padding: 12px; background: rgba(30,27,75,0.5); border-radius: 8px; border-left: 3px solid ${day.weather_severity >= 0.5 ? '#ef4444' : day.weather_severity >= 0.2 ? '#eab308' : '#10b981'};">`;
+            html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">`;
+            html += `<strong style="font-size: 13px;">${day.date}</strong>`;
+            html += `<span style="font-size: 11px; color: var(--text-muted);">${day.condition} · ${day.total_precip_mm}mm · ${day.max_wind_kph}kph</span>`;
+            html += `</div>`;
+
+            // Top 5 wards by risk
+            const topWards = day.wards.slice(0, 5);
+            for (const w of topWards) {
+                const riskColor = w.risk_level === 'CRITICAL' ? '#ef4444' : w.risk_level === 'ELEVATED' ? '#eab308' : '#10b981';
+                const barWidth = Math.max(5, Math.round(w.predicted_risk * 100));
+                html += `<div style="display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 11px;">`;
+                html += `<span style="width: 50px; flex-shrink: 0; color: var(--text-muted);">${w.ward_id}</span>`;
+                html += `<div style="flex: 1; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px;">`;
+                html += `<div style="width: ${barWidth}%; height: 100%; background: ${riskColor}; border-radius: 3px; transition: width 0.5s;"></div>`;
+                html += `</div>`;
+                html += `<span style="width: 60px; text-align: right; font-weight: 700; color: ${riskColor}; font-size: 10px;">${w.risk_level}</span>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--danger);">Failed to load forecast.</div>';
+    } finally {
+        btn.innerHTML = 'Refresh Forecast';
+        btn.disabled = false;
+    }
+}
+
+// Wire the forecast button
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btnLoadForecast');
+    if (btn) btn.addEventListener('click', loadForecast);
+});
+
