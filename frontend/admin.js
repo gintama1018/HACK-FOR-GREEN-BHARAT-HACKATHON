@@ -29,6 +29,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         authToken = '';
         document.getElementById('authOverlay').classList.remove('hidden');
     });
+
+    document.getElementById('btnDemo').addEventListener('click', async () => {
+        if (!confirm("🚨 Warning: This will inject multiple severe reports into Ward 12 to demonstrate the auto-triage escalation matrix. Continue?")) return;
+
+        const btn = document.getElementById('btnDemo');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'INJECTING...';
+
+        try {
+            const res = await fetch('/api/demo/simulate-crisis', {
+                method: 'POST',
+                headers: authHeader()
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.message, 'success');
+            } else {
+                showToast(data.error || "Simulation failed.", 'error');
+            }
+        } catch (e) {
+            showToast("Network error during simulation.", 'error');
+        } finally {
+            btn.innerHTML = originalText;
+        }
+    });
 });
 
 async function bootstrap() {

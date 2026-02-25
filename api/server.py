@@ -370,6 +370,47 @@ async def report_road_issue(
     })
 
 
+@app.post("/api/demo/simulate-crisis")
+async def simulate_crisis(authorization: Optional[str] = Header(None)):
+    """Demo Mode: Injects a burst of synthetic reports to trigger the Escalation/Critical matrix."""
+    if not _check_admin_token(authorization):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+    
+    # Target Ward 12 specifically to create a localized heat cluster
+    demo_events = []
+    
+    # Generate 6 rapid reports for dustbin 1 (Triggers 'Escalated' or 'Critical')
+    for _ in range(6):
+        event = {
+            "event_id": f"WR-DEMO-{uuid.uuid4().hex[:6]}",
+            "dustbin_id": "MCD-W12-001",
+            "ward_id": "W12",
+            "overflow_level": 5,
+            "timestamp": datetime.now().isoformat(),
+            "source": "demo_bot"
+        }
+        _write_event(WASTE_REPORT_DIR, "waste", event)
+        demo_events.append(event)
+        
+    # Generate a massive road issue nearby
+    road_event = {
+        "event_id": f"RI-DEMO-{uuid.uuid4().hex[:6]}",
+        "from_dustbin": "MCD-W12-001",
+        "to_dustbin": "MCD-W12-002",
+        "ward_id": "W12",
+        "issue_type": "waterlogging",
+        "severity": 5,
+        "timestamp": datetime.now().isoformat(),
+        "source": "demo_bot"
+    }
+    _write_event(ROAD_REPORT_DIR, "road", road_event)
+    
+    return JSONResponse(content={
+        "status": "success",
+        "message": "🚨 CRISIS SIMULATION INJECTED. Watch the Admin Queue automatically prioritize Ward 12."
+    })
+
+
 @app.post("/api/van/collection")
 async def report_van_collection(
     report: VanCollectionReport,
@@ -412,6 +453,17 @@ async def report_van_collection(
 # ═══════════════════════════════════════════════════════════════════════════
 # READ-ONLY ENDPOINTS (serve cached Pathway output — NO computation)
 # ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/health")
+async def health_check():
+    """Production health check for Render/Vercel/Railway."""
+    return JSONResponse(content={
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "engine": "active",
+        "cache_entries": len(_last_report)
+    })
+
 
 @app.get("/api/dashboard")
 async def get_dashboard():
