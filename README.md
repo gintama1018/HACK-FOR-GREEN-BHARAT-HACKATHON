@@ -1,6 +1,23 @@
 # InfraWatch Nexus 🏙️
 
+![CI](https://github.com/gintama1018/HACK-FOR-GREEN-BHARAT-HACKATHON/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?logo=fastapi)
+![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
+![License](https://img.shields.io/badge/License-Hackathon-orange)
+
 **InfraWatch Nexus** is a real-time, AI-driven civic intelligence platform designed to seamlessly connect citizens with municipal dispatch operations. Built for the Hack For Green Bharat Hackathon, it bridges the gap between public reporting and tactical municipal response using cutting-edge streaming event architecture.
+
+> **🔗 Live Demo:** [https://infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com)
+> **🔐 Admin Portal:** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) (Token: `INFRAWATCH_ADMIN_2026`)
+
+### ⚡ tl;dr — Run in 3 Steps
+
+```bash
+git clone https://github.com/gintama1018/HACK-FOR-GREEN-BHARAT-HACKATHON.git
+cp .env.example .env   # Add your GEMINI_API_KEY and WX_API_KEY
+bash start.sh           # Opens Citizens' Portal at localhost:8000
+```
 
 ---
 
