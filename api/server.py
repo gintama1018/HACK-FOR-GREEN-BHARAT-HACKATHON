@@ -705,6 +705,24 @@ async def startup():
     t.start()
     print("  Cache updater started (3s interval)")
 
+    # Start keep-alive self-ping (prevents Render free-tier spin-down)
+    def _keep_alive():
+        """Ping our own /health endpoint every 13 minutes to prevent Render sleep."""
+        import requests as req
+        port = int(os.environ.get("PORT", 8000))
+        url = f"http://localhost:{port}/health"
+        while True:
+            time.sleep(780)  # 13 minutes
+            try:
+                req.get(url, timeout=5)
+                print("  [keep-alive] Self-ping OK")
+            except Exception:
+                print("  [keep-alive] Self-ping failed (non-critical)")
+
+    ka = threading.Thread(target=_keep_alive, daemon=True)
+    ka.start()
+    print("  Keep-alive ping started (13min interval)")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # RUN
