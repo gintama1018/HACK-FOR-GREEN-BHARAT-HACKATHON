@@ -325,6 +325,108 @@ function initForms() {
     });
 }
 
+// ── CLEAR ISSUES LOGIC ──────────────────────────────────────────────
+function populateClearDropdowns() {
+    if (!dashboard) return;
+
+    // Dustbins with active reports/escalations
+    const dSel = document.getElementById('clearDustbinSelect');
+    if (!dSel) return;
+    const currentDustbin = dSel.value;
+    dSel.innerHTML = '<option value="">— Select Dustbin —</option>';
+
+    const activeDustbins = (dashboard.dustbin_states || []).filter(d => d.state !== 'Clear' && d.state !== 'Cleared');
+    activeDustbins.sort((a, b) => b.report_count - a.report_count);
+    for (const d of activeDustbins) {
+        dSel.innerHTML += `<option value="${d.dustbin_id}">${d.dustbin_id} (${d.state})</option>`;
+    }
+    if (currentDustbin && activeDustbins.some(d => d.dustbin_id === currentDustbin)) {
+        dSel.value = currentDustbin;
+    }
+
+    // Active road issues
+    const rSel = document.getElementById('clearRoadSelect');
+    if (!rSel) return;
+    const currentRoad = rSel.value;
+    rSel.innerHTML = '<option value="">— Select Road Issue —</option>';
+
+    const activeRoads = dashboard.road_issues || [];
+    for (const r of activeRoads) {
+        rSel.innerHTML += `<option value="${r.event_id}">${r.issue_type.toUpperCase()}: ${r.from_dustbin} → ${r.to_dustbin}</option>`;
+    }
+    if (currentRoad && activeRoads.some(r => r.event_id === currentRoad)) {
+        rSel.value = currentRoad;
+    }
+}
+
+async function clearDustbin() {
+    const btn = document.getElementById('btnClearDustbin');
+    const did = document.getElementById('clearDustbinSelect').value;
+
+    if (!did) { showToast('Select a dustbin to clear.', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = 'Submitting...';
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/van/collection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...authHeader()
+            },
+            body: JSON.stringify({ dustbin_id: did })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            showToast('✅ Dustbin marked as collected.', 'success');
+            document.getElementById('clearDustbinSelect').value = '';
+        } else {
+            if (resp.status === 401) { showAuthModal(); showToast('Auth Token Expired', 'error'); }
+            showToast(data.error || 'Failed to clear dustbin.', 'error');
+        }
+    } catch (e) {
+        showToast('Network error.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Mark as Collected';
+    }
+}
+
+async function clearRoad() {
+    const btn = document.getElementById('btnClearRoad');
+    const eid = document.getElementById('clearRoadSelect').value;
+
+    if (!eid) { showToast('Select a road issue to clear.', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = 'Submitting...';
+
+    try {
+        const resp = await fetch(`${API_BASE}/api/van/clear-road`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...authHeader()
+            },
+            body: JSON.stringify({ event_id: eid })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            showToast('✅ Road issue marked as resolved.', 'success');
+            document.getElementById('clearRoadSelect').value = '';
+        } else {
+            if (resp.status === 401) { showAuthModal(); showToast('Auth Token Expired', 'error'); }
+            showToast(data.error || 'Failed to clear road.', 'error');
+        }
+    } catch (e) {
+        showToast('Network error.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Mark as Resolved';
+    }
+}
+
 // ── UI RENDERERS ────────────────────────────────────────────────────
 let highlightLine = null;  // Track active highlight
 
