@@ -355,6 +355,7 @@ function updateStatsBar() {
     const overflowing = states.filter(d =>
         d.state === 'Critical' || d.state === 'Escalated'
     ).length;
+    const critical = states.filter(d => d.state === 'Critical').length;
     const clear = states.filter(d => d.state === 'Clear').length;
     const collectionRate = total > 0 ? Math.round((clear / total) * 100) : 0;
 
@@ -362,6 +363,10 @@ function updateStatsBar() {
     document.getElementById('statOverflowing').textContent = overflowing;
     document.getElementById('statCollection').textContent = `${collectionRate}%`;
     document.getElementById('statBar').style.width = `${collectionRate}%`;
+
+    // High priority label
+    const hpEl = document.getElementById('statHighPriority');
+    if (hpEl) hpEl.textContent = critical > 0 ? `${critical} Critical` : '● High Priority';
 
     // Truck count from van events
     const trucks = dashboard.active_vans || 0;
@@ -388,14 +393,47 @@ function updateRoadAlertsPanel() {
     if (!roads.length) { container.innerHTML = '<div class="recent-empty">No active road alerts</div>'; return; }
 
     container.innerHTML = roads.map(ri => `
-        <div class="alert-item">
+        <div class="alert-item" style="cursor:pointer;" onclick='zoomToRoadIssue(${JSON.stringify({ event_id: ri.event_id, from_lat: ri.from_lat, from_lng: ri.from_lng, to_lat: ri.to_lat, to_lng: ri.to_lng, issue_type: ri.issue_type, severity: ri.severity, from_dustbin: ri.from_dustbin, to_dustbin: ri.to_dustbin })})'>
             <span class="alert-icon">🚧</span>
             <div class="alert-info">
                 <div class="alert-name">${ri.issue_type?.toUpperCase() || 'UNKNOWN'}</div>
-                <div class="alert-sub">${ri.from_dustbin} → ${ri.to_dustbin} · Severity ${ri.severity}/5</div>
+                <div class="alert-sub">${ri.from_dustbin} → ${ri.to_dustbin} · Severity ${ri.severity}/5 · <span style="color:var(--accent);font-weight:700;">↗ LOCATE</span></div>
             </div>
         </div>
     `).join('');
+}
+
+function zoomToRoadIssue(ri) {
+    // Zoom the dashboard map to this road issue and draw highlight
+    if (!dashMap) return;
+
+    // Remove previous highlight
+    if (citizenHighlightLine) { dashMap.removeLayer(citizenHighlightLine); citizenHighlightLine = null; }
+
+    // Zoom to fit both endpoints
+    const bounds = L.latLngBounds(
+        [ri.from_lat, ri.from_lng],
+        [ri.to_lat, ri.to_lng]
+    );
+    dashMap.flyToBounds(bounds.pad(0.3), { duration: 1.2 });
+
+    // Draw OSRM-routed gold highlight line
+    fetchRoadPath(ri).then(coords => {
+        if (citizenHighlightLine) dashMap.removeLayer(citizenHighlightLine);
+        citizenHighlightLine = L.polyline(coords, {
+            color: '#FFD700', weight: 8, opacity: 1, dashArray: null
+        }).addTo(dashMap);
+        citizenHighlightLine.bindPopup(
+            `<b>🎯 SELECTED: ${ri.issue_type.toUpperCase()}</b><br>Severity: ${ri.severity}/5`
+        ).openPopup();
+
+        // Fade to normal after 5 seconds
+        setTimeout(() => {
+            if (citizenHighlightLine) {
+                citizenHighlightLine.setStyle({ color: '#EA580C', weight: 5, opacity: 0.85, dashArray: '6,6' });
+            }
+        }, 5000);
+    });
 }
 
 function updateAlertBadge() {
