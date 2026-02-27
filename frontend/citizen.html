@@ -6,140 +6,338 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InfraWatch Nexus — Citizens' Portal</title>
     <meta name="description" content="Live civic transparency interface for tracking waste and road infrastructure.">
-    <link rel="stylesheet" href="/static/citizen.css?v=5">
+    <link rel="stylesheet" href="/static/citizen.css?v=6">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
-    <!-- ── HEADER (Top Bar) ─────────────────────────────────────────── -->
-    <header class="header">
-        <div class="logo">
-            <span class="logo-icon">🏙️</span>
-            <h1>InfraWatch <span class="accent">Nexus</span></h1>
+    <!-- ═══════════════════════════════════════════════════════════
+         SIDEBAR NAVIGATION
+         ═══════════════════════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">⚡</div>
+            <div class="brand-text">
+                <span class="brand-name">InfraWatch Nexus</span>
+                <span class="brand-sub">City Infrastructure Monitoring</span>
+            </div>
         </div>
-        <div class="nav-badges">
-            <span class="badge live" id="wsStatus">● Connected</span>
-            <span class="badge info" id="weatherBadge">🌧 0mm/hr</span>
-            <span class="badge" id="wasteIndexBadge">Waste Index: 0.0</span>
+
+        <nav class="sidebar-nav">
+            <a class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
+            <a class="nav-item" data-section="citymap" onclick="switchSection('citymap')">
+                <span class="nav-icon">🗺️</span> City Map
+            </a>
+            <a class="nav-item" data-section="analytics" onclick="switchSection('analytics')">
+                <span class="nav-icon">📈</span> Ward Analytics
+            </a>
+            <a class="nav-item" data-section="alerts" onclick="switchSection('alerts')">
+                <span class="nav-icon">🔔</span> Alerts
+                <span class="nav-badge" id="alertBadge">0</span>
+            </a>
+            <a class="nav-item" data-section="routeplanner" onclick="switchSection('routeplanner')">
+                <span class="nav-icon">🚛</span> Route Planner
+            </a>
+            <a class="nav-item" data-section="reports" onclick="switchSection('reports')">
+                <span class="nav-icon">📋</span> Reports
+            </a>
+            <a class="nav-item" data-section="settings" onclick="switchSection('settings')">
+                <span class="nav-icon">⚙️</span> Settings
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a class="nav-item" onclick="window.open('/admin','_blank')">
+                <span class="nav-icon">🛡️</span> Admin Portal
+            </a>
+            <div class="sidebar-copyright">© 2026 InfraWatch</div>
         </div>
-    </header>
+    </aside>
 
-    <!-- ── WORKSPACE ────────────────────────────────────────────────── -->
-    <div class="workspace">
+    <!-- ═══════════════════════════════════════════════════════════
+         MAIN CONTENT AREA
+         ═══════════════════════════════════════════════════════════ -->
+    <main class="main-content">
 
-        <!-- MAIN MAP (70%+) -->
-        <section class="map-section">
-            <div id="map"></div>
+        <!-- ── TOP BAR ─────────────────────────────────────────── -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <select class="topbar-select" id="filterWard">
+                    <option value="">All Wards</option>
+                </select>
+                <select class="topbar-select" id="filterIssue">
+                    <option value="">All Issues</option>
+                    <option value="waste">Waste</option>
+                    <option value="road">Road</option>
+                </select>
+                <div class="topbar-search">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" placeholder="Search Location" id="searchLocation">
+                </div>
+            </div>
+            <div class="topbar-right">
+                <span class="status-badge live" id="wsStatus">● Live</span>
+                <span class="status-badge weather" id="weatherBadge">☀️ 28°C</span>
+                <span class="status-badge rain" id="rainBadge">🌧 0mm</span>
+                <span class="status-badge waste-idx" id="wasteIndex">Waste: 0</span>
+            </div>
+        </header>
+
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: DASHBOARD (Default View)
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section active" id="section-dashboard">
+            <div class="dashboard-grid">
+                <!-- Map Area -->
+                <div class="dash-map-area">
+                    <div id="dashMap" class="map-container"></div>
+                </div>
+
+                <!-- Right Panel: Report Form -->
+                <div class="dash-right-panel">
+                    <div class="panel-tabs">
+                        <button class="ptab active" data-ptab="ptab-report" onclick="switchPanelTab(this)">Report
+                            Dustbin</button>
+                        <button class="ptab" data-ptab="ptab-wardstatus" onclick="switchPanelTab(this)">Ward
+                            Status</button>
+                        <button class="ptab" data-ptab="ptab-roadalerts" onclick="switchPanelTab(this)">Road
+                            Alerts</button>
+                    </div>
+
+                    <!-- Report Dustbin Tab -->
+                    <div class="ptab-content active" id="ptab-report">
+                        <h3 class="panel-title">Report Overflowing Dustbin</h3>
+                        <p class="panel-subtitle">Upload a photo to detect MCD ID</p>
+
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-icon">📸</div>
+                            <div class="upload-text">Upload Photo</div>
+                            <div class="upload-hint">Drag & drop or <span class="browse-link">Browse</span></div>
+                            <input type="file" accept="image/*" id="photoInput" hidden>
+                        </div>
+                        <img id="photoPreview" class="photo-preview hidden" alt="Preview">
+
+                        <button class="btn-primary" id="btnDetect">
+                            <span class="btn-icon">🔍</span> Extract Nearest ID
+                        </button>
+
+                        <div class="divider-or">or</div>
+
+                        <button class="btn-secondary" id="btnManual">Select Manually</button>
+
+                        <!-- AI Detection Result -->
+                        <div class="detection-result hidden" id="detectionResult">
+                            <div class="detect-label">🤖 AI Detected</div>
+                            <div class="detect-id" id="detectedId">—</div>
+                            <div class="detect-street" id="detectedStreet">—</div>
+                            <div class="overflow-selector" id="overflowSelector">
+                                <label class="overflow-label">Overflow Level</label>
+                                <div class="overflow-grid" id="overflowGrid">
+                                    <button class="ov-btn" data-val="1">1</button>
+                                    <button class="ov-btn" data-val="2">2</button>
+                                    <button class="ov-btn active" data-val="3">3</button>
+                                    <button class="ov-btn" data-val="4">4</button>
+                                    <button class="ov-btn" data-val="5">5</button>
+                                </div>
+                            </div>
+                            <button class="btn-confirm" id="btnConfirm">✅ Confirm & Submit</button>
+                        </div>
+
+                        <!-- Manual Selection -->
+                        <div class="manual-form hidden" id="manualForm">
+                            <select class="form-select" id="manualWard">
+                                <option value="">— Ward —</option>
+                            </select>
+                            <select class="form-select" id="manualDustbin">
+                                <option value="">— Dustbin —</option>
+                            </select>
+                            <div class="overflow-grid" id="manualOverflowGrid">
+                                <button class="ov-btn" data-val="1">1</button>
+                                <button class="ov-btn" data-val="2">2</button>
+                                <button class="ov-btn active" data-val="3">3</button>
+                                <button class="ov-btn" data-val="4">4</button>
+                                <button class="ov-btn" data-val="5">5</button>
+                            </div>
+                            <button class="btn-confirm" id="btnManualSubmit">Submit Manual Report</button>
+                        </div>
+
+                        <!-- Recent Reports -->
+                        <div class="recent-reports" id="recentReports">
+                            <div class="recent-header">
+                                <span>Recent Reports</span>
+                                <a href="#" onclick="switchSection('reports');return false;">View All</a>
+                            </div>
+                            <div class="recent-list" id="recentList">
+                                <div class="recent-empty">No reports yet</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ward Status Tab -->
+                    <div class="ptab-content" id="ptab-wardstatus">
+                        <h3 class="panel-title">Ward Overview</h3>
+                        <div id="wardStatusList" class="ward-list"></div>
+                    </div>
+
+                    <!-- Road Alerts Tab -->
+                    <div class="ptab-content" id="ptab-roadalerts">
+                        <h3 class="panel-title">Active Road Alerts</h3>
+                        <div id="roadAlertsList" class="alert-list"></div>
+                    </div>
+
+                    <!-- Generate Pickup Route Button -->
+                    <button class="btn-route" onclick="switchSection('routeplanner')">
+                        <span>🚛</span> Generate Pickup Route <span class="route-arrow">›</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <div class="stat-icon">🗑️</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Total Bins</div>
+                        <div class="stat-value" id="statTotalBins">72</div>
+                    </div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-icon">🔴</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Overflowing</div>
+                        <div class="stat-value" id="statOverflowing">0</div>
+                        <div class="stat-sub" id="statHighPriority">● High Priority</div>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon">♻️</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Collection Rate</div>
+                        <div class="stat-value" id="statCollection">—</div>
+                        <div class="stat-progress">
+                            <div class="stat-bar" id="statBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🚛</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Active Trucks</div>
+                        <div class="stat-value" id="statTrucks">0</div>
+                        <div class="stat-sub success-text">On Route</div>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <!-- SIDE PANEL (Tabs) -->
-        <aside class="side-panel">
-            <div class="tabs">
-                <button class="tab-btn active" data-tab="tab-report">Report Dustbin</button>
-                <button class="tab-btn" data-tab="tab-wards">Ward Status</button>
-                <button class="tab-btn" data-tab="tab-roads">Road Alerts</button>
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: CITY MAP (Full-Screen Map)
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section" id="section-citymap">
+            <div id="fullMap" class="map-fullscreen"></div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: WARD ANALYTICS
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section" id="section-analytics">
+            <div class="section-header">
+                <h2>Ward Analytics</h2>
+                <p class="section-desc">Real-time risk assessment per ward</p>
             </div>
+            <div class="analytics-grid" id="analyticsGrid">
+                <!-- Populated by JS -->
+            </div>
+        </section>
 
-            <!-- TAB 1: REPORT DUSTBIN -->
-            <div class="tab-content active" id="tab-report">
-                <div id="reportFlow">
-                    <!-- Step 1: Upload Photo -->
-                    <div class="flow-step active" id="step1">
-                        <label class="upload-area" for="photoInput">
-                            <div class="icon">📷</div>
-                            <p>Upload Overflowing Dustbin Photo</p>
-                            <small>AI will detect the MCD ID automatically</small>
-                        </label>
-                        <input type="file" id="photoInput" accept="image/*" hidden>
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: ALERTS
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section" id="section-alerts">
+            <div class="section-header">
+                <h2>Active Alerts</h2>
+                <p class="section-desc">Priority-ranked civic incidents</p>
+            </div>
+            <div class="alerts-container" id="alertsContainer">
+                <!-- Populated by JS -->
+            </div>
+        </section>
 
-                        <img id="photoPreview" class="photo-preview" hidden>
-                        <button class="btn btn-primary" id="btnDetect" style="margin-bottom: 10px;" hidden>🔍 Extract
-                            Nearest ID</button>
-                        <div style="text-align: center; margin-top: 16px;">
-                            <button class="btn btn-outline" id="btnManual">Or Select Manually</button>
-                        </div>
-                    </div>
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: ROUTE PLANNER
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section" id="section-routeplanner">
+            <div class="section-header">
+                <h2>Route Planner</h2>
+                <p class="section-desc">Optimized collection routes based on priority</p>
+            </div>
+            <div class="route-layout">
+                <div id="routeMap" class="route-map"></div>
+                <div class="route-sidebar">
+                    <h3>Priority Stops</h3>
+                    <div id="routeStops" class="route-stops"></div>
+                    <button class="btn-primary" id="btnGenerateRoute" style="margin-top:16px;width:100%;">
+                        🚛 Generate Optimized Route
+                    </button>
+                    <div class="route-stats" id="routeStats"></div>
+                </div>
+            </div>
+        </section>
 
-                    <!-- Step 2: Confirmation / Overflow -->
-                    <div class="flow-step" id="step2">
-                        <div class="detected-box">
-                            <div class="detected-id" id="detectedId">MCD-W--</div>
-                            <div class="detected-street" id="detectedStreet">Location</div>
-                        </div>
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: REPORTS
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section" id="section-reports">
+            <div class="section-header">
+                <h2>Reports History</h2>
+                <p class="section-desc">All submitted civic reports</p>
+            </div>
+            <div class="reports-table" id="reportsTable">
+                <div class="reports-empty">Reports will appear here as citizens submit them.</div>
+            </div>
+        </section>
 
-                        <div class="form-group">
-                            <label class="label">Overflow Level (1-5)</label>
-                            <div class="sev-grid" id="overflowGrid">
-                                <button class="sev-btn" data-val="1">1</button>
-                                <button class="sev-btn" data-val="2">2</button>
-                                <button class="sev-btn active" data-val="3">3</button>
-                                <button class="sev-btn" data-val="4">4</button>
-                                <button class="sev-btn" data-val="5">5</button>
-                            </div>
-                        </div>
-
-                        <button class="btn btn-primary" id="btnSubmitReport">Submit to Municipal System</button>
-                        <button class="btn btn-outline" id="btnBackStep2" style="margin-top: 8px;">Cancel</button>
-                    </div>
-
-                    <!-- Step 3: Manual Selection -->
-                    <div class="flow-step" id="step3">
-                        <div class="form-group">
-                            <label class="label">Select Ward</label>
-                            <select class="select" id="manualWard"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="label">Select Dustbin</label>
-                            <select class="select" id="manualDustbin"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="label">Overflow Level (1-5)</label>
-                            <div class="sev-grid" id="manualOverflowGrid">
-                                <button class="sev-btn" data-val="1">1</button>
-                                <button class="sev-btn" data-val="2">2</button>
-                                <button class="sev-btn active" data-val="3">3</button>
-                                <button class="sev-btn" data-val="4">4</button>
-                                <button class="sev-btn" data-val="5">5</button>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" id="btnSubmitManual">Submit to Municipal System</button>
-                        <button class="btn btn-outline" id="btnBackManual" style="margin-top: 8px;">Cancel</button>
-                    </div>
-
-                    <!-- Step 4: Success -->
-                    <div class="flow-step" id="step4">
-                        <div class="success-msg">
-                            <div class="icon">✅</div>
-                            <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Report accepted.</p>
-                            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 24px;">Updating
-                                municipal system. The map marker will reflect this shortly.</p>
-                            <button class="btn btn-outline" id="btnNewReport">Report Another</button>
-                        </div>
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: SETTINGS
+             ═══════════════════════════════════════════════════════ -->
+        <section class="content-section" id="section-settings">
+            <div class="section-header">
+                <h2>Settings</h2>
+                <p class="section-desc">Application configuration</p>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-card">
+                    <h3>🗺️ Map Theme</h3>
+                    <p>Toggle between light and dark map tiles</p>
+                    <select class="form-select" id="mapTheme" onchange="changeMapTheme(this.value)">
+                        <option value="dark">Dark Mode</option>
+                        <option value="light">Light Mode</option>
+                    </select>
+                </div>
+                <div class="setting-card">
+                    <h3>🔔 Notifications</h3>
+                    <p>Enable browser push notifications</p>
+                    <button class="btn-secondary" onclick="requestNotifPermission()">Enable Notifications</button>
+                </div>
+                <div class="setting-card">
+                    <h3>📡 Connection</h3>
+                    <p>WebSocket connection status and diagnostics</p>
+                    <div class="ws-diag">
+                        <div>Status: <span id="settingsWsStatus">Connecting...</span></div>
+                        <div>Last Update: <span id="settingsLastUpdate">—</span></div>
                     </div>
                 </div>
             </div>
-
-            <!-- TAB 2: WARD STATUS -->
-            <div class="tab-content" id="tab-wards">
-                <div id="wardListContainer">
-                    <p class="empty-state">Loading ward data...</p>
-                </div>
-            </div>
-
-            <!-- TAB 3: ROAD ALERTS -->
-            <div class="tab-content" id="tab-roads">
-                <div id="roadListContainer">
-                    <p class="empty-state">No active road issues reported in the last 6 hours.</p>
-                </div>
-            </div>
-        </aside>
-    </div>
+        </section>
+    </main>
 
     <div class="toast-container" id="toastContainer"></div>
-    <script src="/static/citizen.js?v=5"></script>
+    <script src="/static/citizen.js?v=6"></script>
 </body>
 
 </html>
