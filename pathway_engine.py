@@ -71,9 +71,13 @@ def _weather_poller():
     api_key = os.getenv("WX_API_KEY", "")
     started_at = datetime.now().isoformat()
 
+    if not api_key:
+        print("\n❌ CRITICAL: WX_API_KEY IS MISSING IN .env!")
+        print("❌ Real-time weather polling is DISABLED. Pathway needs this key to operate in live mode!\n")
+
     while True:
         rainfall = 0.0
-        source = "fallback"
+        source = "weatherapi.com"
 
         if api_key:
             try:
@@ -85,9 +89,10 @@ def _weather_poller():
                 if resp.status_code == 200:
                     data = resp.json()
                     rainfall = data.get("current", {}).get("precip_mm", 0.0)
-                    source = "weatherapi.com"
+                else:
+                    print(f"[Weather] API error HTTP {resp.status_code}: {resp.text}")
             except Exception as e:
-                print(f"[Weather] API error: {e}")
+                print(f"[Weather] Network error: {e}")
 
         now_ts = datetime.now().isoformat()
         weather_event = {
