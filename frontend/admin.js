@@ -116,6 +116,7 @@ async function bootstrap() {
     initMap();
     initForms();
     connectWebSocket();
+    setTimeout(populateClearDropdowns, 1000); // Give dashboard a second to load
 }
 
 // ── AUTH ────────────────────────────────────────────────────────────
@@ -292,7 +293,7 @@ function updateMap() {
 // ── FORMS ───────────────────────────────────────────────────────────
 function initForms() {
     // Road Severity
-    document.getElementById('roadSevGrid').addEventListener('click', e => {
+    document.getElementById('roadSevGrid')?.addEventListener('click', e => {
         if (!e.target.classList.contains('sev-btn')) return;
         document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
