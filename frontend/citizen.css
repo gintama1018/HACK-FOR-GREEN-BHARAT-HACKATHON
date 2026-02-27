@@ -1411,3 +1411,251 @@ body {
     background: var(--border);
     border-radius: 3px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE STYLES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tablet */
+@media screen and (max-width: 1024px) {
+    .sidebar {
+        width: 200px;
+        min-width: 200px;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr 320px;
+    }
+}
+
+/* Large mobile / small tablet */
+@media screen and (max-width: 768px) {
+    body {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+    
+    /* Hide sidebar by default, show toggle button */
+    .sidebar {
+        position: fixed;
+        left: -240px;
+        top: 0;
+        bottom: 0;
+        width: 240px;
+        transition: left 0.3s ease;
+        z-index: 1000;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    }
+    
+    .sidebar.open {
+        left: 0;
+    }
+    
+    /* Mobile hamburger menu */
+    .mobile-menu-btn {
+        display: flex !important;
+    }
+    
+    /* Main content takes full width */
+    .main-content {
+        width: 100% !important;
+        margin-left: 0 !important;
+    }
+    
+    /* Top bar - stack vertically */
+    .topbar {
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+        height: auto;
+    }
+    
+    .topbar-left, .topbar-right {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+    
+    .topbar-select, .topbar-search {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .status-badge {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+    
+    /* Dashboard - single column */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .dash-map-area {
+        min-height: 300px;
+        order: -1;
+    }
+    
+    .dash-right-panel {
+        width: 100%;
+    }
+    
+    /* Panel tabs - horizontal scroll */
+    .panel-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .ptab {
+        padding: 10px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    
+    /* Upload zone - larger touch area */
+    .upload-zone {
+        padding: 30px 20px;
+        min-height: 150px;
+    }
+    
+    /* Form elements - touch friendly */
+    .form-select {
+        padding: 12px;
+        font-size: 14px;
+        min-height: 44px;
+    }
+    
+    .btn-primary, .btn-secondary, .btn-confirm {
+        padding: 14px;
+        font-size: 14px;
+        min-height: 48px;
+    }
+    
+    .overflow-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+    }
+    
+    .ov-btn {
+        padding: 12px;
+        min-height: 44px;
+    }
+    
+    /* Stats bar - 2x2 grid */
+    .stats-bar {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .stat-icon {
+        font-size: 20px;
+    }
+    
+    .stat-value {
+        font-size: 20px;
+    }
+    
+    /* Full screen map */
+    .map-fullscreen {
+        min-height: 60vh;
+    }
+    
+    /* Analytics grid */
+    .analytics-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    /* Alerts split */
+    .alerts-split {
+        flex-direction: column;
+    }
+    
+    .live-feed-panel, .alerts-priority-panel {
+        width: 100%;
+    }
+    
+    /* Settings */
+    .settings-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
+/* Extra small phones */
+@media screen and (max-width: 380px) {
+    .sidebar {
+        width: 85vw;
+        max-width: 280px;
+        left: -85vw;
+    }
+    
+    .sidebar.open {
+        left: 0;
+    }
+    
+    .topbar-select, .topbar-search {
+        width: 100%;
+        flex: none;
+    }
+    
+    .stats-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .stat-card {
+        padding: 10px;
+    }
+    
+    .stat-label {
+        font-size: 10px;
+    }
+    
+    .stat-value {
+        font-size: 18px;
+    }
+}
+
+/* Mobile menu button (hidden by default) */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 999;
+    width: 44px;
+    height: 44px;
+    background: var(--bg-sidebar);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+}
+
+.mobile-menu-btn:active {
+    transform: scale(0.95);
+}
+
+/* Sidebar overlay for mobile */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+}
+
+.sidebar-overlay.active {
+    display: block;
+}

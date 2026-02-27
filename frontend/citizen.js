@@ -1062,3 +1062,31 @@ function showToast(msg, type = 'info') {
     c.appendChild(t);
     setTimeout(() => t.remove(), 4000);
 }
+
+// ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+}
+
+// Close sidebar when navigating on mobile
+document.addEventListener('DOMContentLoaded', function() {
+    const navItems = document.querySelectorAll('.nav-item[data-section]');
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Check if we're on mobile
+            if (window.innerWidth <= 768) {
+                closeSidebar();
+            }
+        });
+    });
+});
