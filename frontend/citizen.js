@@ -243,16 +243,35 @@ function drawRoadLines(map, lineStore, roadIssues) {
     }
 }
 
+// Track road issue hash to avoid re-drawing on every WS tick
+let lastRoadHash = '';
+let lastFullRoadHash = '';
+
+function getRoadHash(roadIssues) {
+    return (roadIssues || []).map(r => r.event_id).sort().join(',');
+}
+
 function updateDashMap() {
     if (!dashboard) return;
     updateMarkers(markers, dashboard.dustbin_states || []);
-    drawRoadLines(dashMap, roadLines, dashboard.road_issues);
+
+    // Only redraw road lines if they actually changed
+    const newHash = getRoadHash(dashboard.road_issues);
+    if (newHash !== lastRoadHash) {
+        lastRoadHash = newHash;
+        drawRoadLines(dashMap, roadLines, dashboard.road_issues);
+    }
 }
 
 function updateFullMap() {
     if (!dashboard || !fullMap) return;
     updateMarkers(fullMarkers, dashboard.dustbin_states || []);
-    drawRoadLines(fullMap, fullRoadLines, dashboard.road_issues);
+
+    const newHash = getRoadHash(dashboard.road_issues);
+    if (newHash !== lastFullRoadHash) {
+        lastFullRoadHash = newHash;
+        drawRoadLines(fullMap, fullRoadLines, dashboard.road_issues);
+    }
 }
 
 // ── STATS BAR ───────────────────────────────────────────────────────
@@ -364,6 +383,8 @@ function renderAlertsPage() {
     }).join('');
 }
 
+let citizenHighlightLine = null;  // Track active highlight on citizen map
+
 function zoomToAlert(item) {
     // Switch to Dashboard and zoom the map
     switchSection('dashboard');
@@ -371,12 +392,15 @@ function zoomToAlert(item) {
     setTimeout(() => {
         if (!dashMap) return;
 
+        // Remove previous highlight
+        if (citizenHighlightLine) { dashMap.removeLayer(citizenHighlightLine); citizenHighlightLine = null; }
+
         if (item.type === 'waste') {
             // Zoom to the dustbin marker
             const info = configData?.dustbins[item.id];
             if (!info) return;
 
-            dashMap.flyTo([info.lat, info.lng], 16, { duration: 1.2 });
+            dashMap.flyTo([info.lat, info.lng], 17, { duration: 1.2 });
 
             // Flash the marker white → then revert
             const marker = markers[item.id];
@@ -394,24 +418,43 @@ function zoomToAlert(item) {
                 }, 2000);
             }
         } else if (item.type === 'road') {
-            // Zoom to fit the road endpoints
-            if (item.from_lat && item.to_lat) {
-                const bounds = L.latLngBounds(
-                    [item.from_lat, item.from_lng],
-                    [item.to_lat, item.to_lng]
-                ).pad(0.4);
-                dashMap.flyToBounds(bounds, { duration: 1.2 });
+            // Look up the full road_issue data from dashboard (has coordinates)
+            const roadIssues = dashboard?.road_issues || [];
+            const ri = roadIssues.find(r => r.event_id === item.id);
 
-                // Flash highlight polyline
-                const highlight = L.polyline(
-                    [[item.from_lat, item.from_lng], [item.to_lat, item.to_lng]],
-                    { color: '#FFFFFF', weight: 8, opacity: 0.8, dashArray: '4,8' }
-                ).addTo(dashMap);
-
-                setTimeout(() => dashMap.removeLayer(highlight), 3000);
+            if (!ri) {
+                // Fallback: zoom to ward center
+                const wardInfo = configData?.wards?.[item.ward_id];
+                if (wardInfo) dashMap.flyTo([wardInfo.lat, wardInfo.lng], 15, { duration: 1.2 });
+                return;
             }
+
+            // Zoom to fit both dustbin endpoints
+            const bounds = L.latLngBounds(
+                [ri.from_lat, ri.from_lng],
+                [ri.to_lat, ri.to_lng]
+            );
+            dashMap.flyToBounds(bounds.pad(0.3), { duration: 1.2 });
+
+            // Draw OSRM-routed highlight line (gold, thick, pulsing)
+            fetchRoadPath(ri).then(coords => {
+                if (citizenHighlightLine) dashMap.removeLayer(citizenHighlightLine);
+                citizenHighlightLine = L.polyline(coords, {
+                    color: '#FFD700', weight: 8, opacity: 1, dashArray: null
+                }).addTo(dashMap);
+                citizenHighlightLine.bindPopup(
+                    `<b>🎯 SELECTED: ${ri.issue_type.toUpperCase()}</b><br>Severity: ${ri.severity}/5`
+                ).openPopup();
+
+                // Fade to normal orange after 5 seconds
+                setTimeout(() => {
+                    if (citizenHighlightLine) {
+                        citizenHighlightLine.setStyle({ color: '#EA580C', weight: 5, opacity: 0.85, dashArray: '6,6' });
+                    }
+                }, 5000);
+            });
         }
-    }, 200);
+    }, 250);
 }
 
 // ── ROUTE PLANNER PAGE ──────────────────────────────────────────────
