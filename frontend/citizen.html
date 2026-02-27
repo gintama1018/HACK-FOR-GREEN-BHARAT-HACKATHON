@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InfraWatch Nexus — Citizens' Portal</title>
     <meta name="description" content="Live civic transparency interface for tracking waste and road infrastructure.">
-    <link rel="stylesheet" href="/static/citizen.css?v=6">
+    <link rel="stylesheet" href="/static/citizen.css?v=7">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -260,11 +260,31 @@
              ═══════════════════════════════════════════════════════ -->
         <section class="content-section" id="section-alerts">
             <div class="section-header">
-                <h2>Active Alerts</h2>
-                <p class="section-desc">Priority-ranked civic incidents</p>
+                <h2>Alerts & Live Feed</h2>
+                <p class="section-desc">Real-time event stream — like Uber, but for your city</p>
             </div>
-            <div class="alerts-container" id="alertsContainer">
-                <!-- Populated by JS -->
+            <div class="alerts-split">
+                <!-- Live Event Feed -->
+                <div class="live-feed-panel">
+                    <div class="feed-header">
+                        <span class="feed-dot"></span>
+                        <span class="feed-title">Live Event Stream</span>
+                        <span class="feed-count" id="feedCount">0 events</span>
+                    </div>
+                    <div class="feed-list" id="liveFeed">
+                        <div class="feed-empty">Waiting for events... Stream will populate as state changes occur.</div>
+                    </div>
+                </div>
+                <!-- Priority Alerts -->
+                <div class="alerts-priority-panel">
+                    <div class="feed-header" style="background:var(--bg);">
+                        <span style="font-size:16px;">🚨</span>
+                        <span class="feed-title">Priority Queue</span>
+                    </div>
+                    <div class="alerts-container" id="alertsContainer">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
             </div>
         </section>
 

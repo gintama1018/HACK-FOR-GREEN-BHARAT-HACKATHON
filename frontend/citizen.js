@@ -579,6 +579,173 @@ function addRecentReport(dustbinId) {
     `).join('');
 }
 
+// ── LIVE EVENT STREAMING ENGINE ─────────────────────────────────────
+let previousState = null;      // Previous WebSocket snapshot for diffing
+let liveEvents = [];           // All detected events
+const MAX_FEED_EVENTS = 50;    // Keep last 50 events in memory
+
+function detectStateChanges(newDashboard) {
+    if (!previousState) return; // First message — no diff possible
+
+    const events = [];
+    const now = new Date().toLocaleTimeString();
+
+    // ── DUSTBIN STATE CHANGES ─────────────────────────────────────────
+    const prevStates = {};
+    for (const ds of (previousState.dustbin_states || [])) {
+        prevStates[ds.dustbin_id] = ds;
+    }
+
+    for (const ds of (newDashboard.dustbin_states || [])) {
+        const prev = prevStates[ds.dustbin_id];
+        if (!prev) continue;
+
+        // Escalation detection
+        if (prev.state !== ds.state) {
+            const severity = { 'Clear': 0, 'Reported': 1, 'Escalated': 2, 'Critical': 3 };
+            const prevSev = severity[prev.state] ?? 0;
+            const newSev = severity[ds.state] ?? 0;
+
+            if (newSev > prevSev) {
+                // Escalated UP
+                const isCritical = ds.state === 'Critical';
+                events.push({
+                    type: isCritical ? 'critical' : 'warning',
+                    icon: isCritical ? '🔴' : '🟡',
+                    text: `${ds.dustbin_id} escalated to ${ds.state.toUpperCase()}! ${ds.report_count} reports on ${ds.street}`,
+                    time: now,
+                    pushTitle: isCritical ? '🚨 CRITICAL ALERT' : '⚠️ Escalation',
+                    pushBody: `${ds.dustbin_id} (${ds.street}) is now ${ds.state}`,
+                    priority: isCritical ? 3 : 2
+                });
+            } else if (newSev < prevSev) {
+                // De-escalated (collection happened)
+                events.push({
+                    type: 'success',
+                    icon: '✅',
+                    text: `${ds.dustbin_id} resolved → ${ds.state}. Collection complete on ${ds.street}`,
+                    time: now,
+                    pushTitle: '✅ Area Cleared',
+                    pushBody: `${ds.dustbin_id} (${ds.street}) has been collected`,
+                    priority: 1
+                });
+            }
+        }
+
+        // New reports detected
+        if (ds.report_count > (prev.report_count || 0)) {
+            const newCount = ds.report_count - (prev.report_count || 0);
+            events.push({
+                type: 'info',
+                icon: '📢',
+                text: `${newCount} new civic report${newCount > 1 ? 's' : ''} for ${ds.dustbin_id} on ${ds.street}`,
+                time: now,
+                priority: 1
+            });
+        }
+    }
+
+    // ── NEW ROAD ISSUES ───────────────────────────────────────────────
+    const prevRoadIds = new Set((previousState.road_issues || []).map(r => r.event_id));
+    for (const ri of (newDashboard.road_issues || [])) {
+        if (!prevRoadIds.has(ri.event_id)) {
+            events.push({
+                type: 'road',
+                icon: '🚧',
+                text: `New ${ri.issue_type} reported: ${ri.from_dustbin} → ${ri.to_dustbin} (Severity ${ri.severity}/5)`,
+                time: now,
+                pushTitle: '🚧 Road Hazard Alert',
+                pushBody: `${ri.issue_type}: ${ri.from_dustbin} → ${ri.to_dustbin}`,
+                priority: 2
+            });
+        }
+    }
+
+    return events;
+}
+
+function addFeedEvent(event) {
+    liveEvents.unshift(event);
+    if (liveEvents.length > MAX_FEED_EVENTS) liveEvents.pop();
+
+    const feed = document.getElementById('liveFeed');
+    if (!feed) return;
+
+    // Remove empty placeholder
+    const empty = feed.querySelector('.feed-empty');
+    if (empty) empty.remove();
+
+    // Create event card
+    const el = document.createElement('div');
+    el.className = `feed-event ${event.type}`;
+    el.innerHTML = `
+        <span class="feed-event-icon">${event.icon}</span>
+        <div class="feed-event-body">
+            <div class="feed-event-text">${event.text}</div>
+            <div class="feed-event-time">${event.time}</div>
+        </div>
+    `;
+
+    // Prepend (newest first)
+    feed.prepend(el);
+
+    // Trim old events from DOM
+    while (feed.children.length > MAX_FEED_EVENTS) {
+        feed.lastChild.remove();
+    }
+
+    // Update count
+    const countEl = document.getElementById('feedCount');
+    if (countEl) countEl.textContent = `${liveEvents.length} events`;
+}
+
+function firePushNotification(event) {
+    // In-app push toast (always works)
+    const toast = document.createElement('div');
+    toast.className = 'push-toast';
+    toast.innerHTML = `
+        <span class="push-icon">${event.icon}</span>
+        <div class="push-body">
+            <div class="push-title">${event.pushTitle || 'InfraWatch Alert'}</div>
+            <div class="push-msg">${event.pushBody || event.text}</div>
+        </div>
+        <button class="push-close" onclick="this.parentElement.remove()">✕</button>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 6000);
+
+    // Browser native push notification (works even when tab is minimized)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            const notif = new Notification(event.pushTitle || 'InfraWatch Alert', {
+                body: event.pushBody || event.text,
+                icon: '⚡',
+                badge: '⚡',
+                tag: `infrawatch-${Date.now()}`,
+                requireInteraction: event.priority >= 3
+            });
+            notif.onclick = () => { window.focus(); notif.close(); };
+        } catch (e) { /* Silent fail for unsupported contexts */ }
+    }
+}
+
+function processStateChanges(newDashboard) {
+    const events = detectStateChanges(newDashboard);
+    if (!events || events.length === 0) return;
+
+    for (const event of events) {
+        addFeedEvent(event);
+
+        // Fire push notification for important events (priority >= 2)
+        if (event.priority >= 2 && event.pushTitle) {
+            firePushNotification(event);
+        }
+    }
+
+    // Update alert badge with new event count
+    updateAlertBadge();
+}
+
 // ── WEBSOCKET ───────────────────────────────────────────────────────
 function connectWebSocket() {
     const statusEl = document.getElementById('wsStatus');
@@ -589,10 +756,20 @@ function connectWebSocket() {
         statusEl.className = 'status-badge live';
         const diagEl = document.getElementById('settingsWsStatus');
         if (diagEl) diagEl.textContent = 'Connected';
+
+        // Auto-request notification permission on first connect
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
     };
 
     ws.onmessage = (event) => {
-        dashboard = JSON.parse(event.data);
+        const newDashboard = JSON.parse(event.data);
+
+        // ── STATE CHANGE DETECTION (the Uber magic) ──────────────────
+        processStateChanges(newDashboard);
+        previousState = JSON.parse(JSON.stringify(newDashboard)); // Deep clone for next diff
+        dashboard = newDashboard;
 
         // Update topbar
         document.getElementById('rainBadge').textContent = `🌧 ${dashboard.rainfall_mm_hr || 0}mm`;
