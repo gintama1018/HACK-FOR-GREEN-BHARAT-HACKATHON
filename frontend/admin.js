@@ -156,6 +156,36 @@ function initTabs() {
 }
 
 // ── MAP ─────────────────────────────────────────────────────────────
+function getMarkerStateClass(state) {
+    switch (state?.toLowerCase()) {
+        case 'critical': return 'marker-critical';
+        case 'escalated': return 'marker-escalated';
+        case 'reported': return 'marker-reported';
+        case 'cleared': return 'marker-cleared';
+        default: return 'marker-clear';
+    }
+}
+
+function getMarkerSize(state) {
+    switch (state?.toLowerCase()) {
+        case 'critical': return 'marker-xl';
+        case 'escalated': return 'marker-lg';
+        case 'reported': return 'marker-md';
+        default: return 'marker-sm';
+    }
+}
+
+function createDivIcon(stateClass, sizeClass) {
+    const size = sizeClass === 'marker-xl' ? 42 : sizeClass === 'marker-lg' ? 34 : sizeClass === 'marker-md' ? 28 : 22;
+    return L.divIcon({
+        className: '',
+        html: `<div class="marker-icon ${stateClass} ${sizeClass}">🗑️</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2]
+    });
+}
+
 function initMap() {
     const center = configData?.city_center || { lat: 28.6139, lng: 77.2090 };
     map = L.map('map', { center: [center.lat, center.lng], zoom: 11 });
@@ -166,9 +196,8 @@ function initMap() {
 
     if (configData?.dustbins) {
         for (const [did, info] of Object.entries(configData.dustbins)) {
-            const marker = L.circleMarker([info.lat, info.lng], {
-                radius: 6, fillColor: '#64748B', color: '#0F172A', weight: 2, fillOpacity: 0.9
-            }).addTo(map);
+            const icon = createDivIcon('marker-clear', 'marker-sm');
+            const marker = L.marker([info.lat, info.lng], { icon }).addTo(map);
             marker.bindPopup(`<b>${did}</b><br>${info.street}`);
             markers[did] = marker;
         }
@@ -182,12 +211,10 @@ function updateMap() {
         const marker = markers[ds.dustbin_id];
         if (!marker) continue;
 
-        let radius = 6;
-        if (ds.state === 'Critical') radius = 10;
-        else if (ds.state === 'Escalated') radius = 8;
-        else if (ds.state === 'Reported') radius = 7;
-
-        marker.setStyle({ fillColor: ds.color || '#16A34A', radius });
+        const stateClass = getMarkerStateClass(ds.state);
+        const sizeClass = getMarkerSize(ds.state);
+        const icon = createDivIcon(stateClass, sizeClass);
+        marker.setIcon(icon);
         marker.setPopupContent(`
             <div style="font-family: var(--font);">
                 <b>${ds.dustbin_id}</b><br>
@@ -310,10 +337,17 @@ function zoomToItem(index) {
         // Pulse the marker
         const marker = markers[item.id];
         if (marker) {
-            marker.setStyle({ fillColor: '#ffffff', radius: 14 });
+            // Flash white highlight
+            const flashIcon = L.divIcon({
+                className: '',
+                html: `<div class="marker-icon marker-xl" style="background:#fff;box-shadow:0 0 20px rgba(255,255,255,0.8);">🗑️</div>`,
+                iconSize: [42, 42], iconAnchor: [21, 21], popupAnchor: [0, -21]
+            });
+            marker.setIcon(flashIcon);
             marker.openPopup();
             setTimeout(() => {
-                marker.setStyle({ fillColor: item.color || '#EF4444', radius: 10 });
+                const stateClass = getMarkerStateClass(item.state);
+                marker.setIcon(createDivIcon(stateClass, 'marker-lg'));
             }, 1500);
         }
     } else if (item.type === 'road') {

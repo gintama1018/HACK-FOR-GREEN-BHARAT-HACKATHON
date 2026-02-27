@@ -96,6 +96,36 @@ function initTabs() {
 }
 
 // ── MAP ─────────────────────────────────────────────────────────────
+function getMarkerStateClass(state) {
+    switch (state?.toLowerCase()) {
+        case 'critical': return 'marker-critical';
+        case 'escalated': return 'marker-escalated';
+        case 'reported': return 'marker-reported';
+        case 'cleared': return 'marker-cleared';
+        default: return 'marker-clear';
+    }
+}
+
+function getMarkerSize(state) {
+    switch (state?.toLowerCase()) {
+        case 'critical': return 'marker-xl';
+        case 'escalated': return 'marker-lg';
+        case 'reported': return 'marker-md';
+        default: return 'marker-sm';
+    }
+}
+
+function createDivIcon(stateClass, sizeClass) {
+    const size = sizeClass === 'marker-xl' ? 42 : sizeClass === 'marker-lg' ? 34 : sizeClass === 'marker-md' ? 28 : 22;
+    return L.divIcon({
+        className: '',
+        html: `<div class="marker-icon ${stateClass} ${sizeClass}">🗑️</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2]
+    });
+}
+
 function initMap() {
     const center = configData?.city_center || { lat: 28.6139, lng: 77.2090 };
     map = L.map('map', {
@@ -111,14 +141,8 @@ function initMap() {
 
     if (configData?.dustbins) {
         for (const [did, info] of Object.entries(configData.dustbins)) {
-            const marker = L.circleMarker([info.lat, info.lng], {
-                radius: 6,
-                fillColor: '#64748B', // Default gray before WS load
-                color: '#0F172A',
-                weight: 2,
-                fillOpacity: 0.9,
-            }).addTo(map);
-
+            const icon = createDivIcon('marker-clear', 'marker-sm');
+            const marker = L.marker([info.lat, info.lng], { icon }).addTo(map);
             marker.bindPopup(`<b>${did}</b><br>${info.street}<br>Loading State...`);
             markers[did] = marker;
         }
@@ -132,15 +156,10 @@ function updateMap() {
         const marker = markers[ds.dustbin_id];
         if (!marker) continue;
 
-        let radius = 6;
-        if (ds.state === 'Critical') radius = 10;
-        else if (ds.state === 'Escalated') radius = 8;
-        else if (ds.state === 'Reported') radius = 7;
-
-        marker.setStyle({
-            fillColor: ds.color || '#16A34A',
-            radius: radius,
-        });
+        const stateClass = getMarkerStateClass(ds.state);
+        const sizeClass = getMarkerSize(ds.state);
+        const icon = createDivIcon(stateClass, sizeClass);
+        marker.setIcon(icon);
 
         marker.setPopupContent(`
             <div style="font-family: 'Inter', sans-serif;">
