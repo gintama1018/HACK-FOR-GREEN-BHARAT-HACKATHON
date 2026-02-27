@@ -17,6 +17,38 @@ let detectedDustbinId = null;
 let selectedOverflow = 3;
 let manualSelectedOverflow = 3;
 
+// Route cache to avoid redundant OSRM API calls
+const routeCache = {};
+
+/**
+ * Fetch actual road path between two GPS points using OSRM.
+ * Falls back to straight line if routing API fails.
+ */
+async function fetchRoadPath(ri) {
+    const cacheKey = `${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
+    if (routeCache[cacheKey]) return routeCache[cacheKey];
+
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        const data = await resp.json();
+
+        if (data.routes && data.routes.length > 0) {
+            // OSRM returns [lng, lat] — Leaflet needs [lat, lng]
+            const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            routeCache[cacheKey] = coords;
+            return coords;
+        }
+    } catch (e) {
+        console.warn('OSRM routing failed, using straight line fallback:', e.message);
+    }
+
+    // Fallback: straight line
+    const fallback = [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
+    routeCache[cacheKey] = fallback;
+    return fallback;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     await loadConfig();
     initTabs();
@@ -128,17 +160,21 @@ function updateMap() {
 
     if (dashboard.road_issues) {
         for (const ri of dashboard.road_issues) {
-            const line = L.polyline(
-                [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]],
-                { color: '#EA580C', weight: 4, dashArray: '6,6', opacity: 0.8 }
-            ).addTo(map);
+            // Use OSRM to get ACTUAL road path instead of straight line
+            fetchRoadPath(ri).then(coords => {
+                const line = L.polyline(
+                    coords,
+                    { color: '#EA580C', weight: 4, dashArray: '6,6', opacity: 0.8 }
+                ).addTo(map);
 
-            line.bindPopup(`
-                <b>🚧 ACTIVE ROAD ISSUE</b><br>
-                ${ri.issue_type.toUpperCase()}<br>
-                Severity: ${ri.severity}/5
-            `);
-            roadLines.push(line);
+                line.bindPopup(`
+                    <b>🚧 ACTIVE ROAD ISSUE</b><br>
+                    ${ri.issue_type.toUpperCase()}<br>
+                    Severity: ${ri.severity}/5<br>
+                    <span style="font-size:10px;color:#888;">Route-mapped path</span>
+                `);
+                roadLines.push(line);
+            });
         }
     }
 }
