@@ -271,6 +271,8 @@ function initForms() {
 }
 
 // ── UI RENDERERS ────────────────────────────────────────────────────
+let highlightLine = null;  // Track active highlight
+
 function renderQueue() {
     const list = document.getElementById('priorityList');
     const queue = dashboard?.priority_queue || [];
@@ -279,15 +281,76 @@ function renderQueue() {
     if (queue.length === 0) { list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">Queue Clear</div>'; return; }
 
     list.innerHTML = queue.map((q, i) => `
-        <div class="queue-row">
+        <div class="queue-row" style="cursor:pointer;" onclick="zoomToItem(${i})" title="Click to zoom to location">
             <div class="q-rank">#${i + 1}</div>
             <div class="q-info">
                 <div class="q-id">${q.type === 'waste' ? '🗑️' : '🚧'} ${q.name}</div>
-                <div class="q-sub" style="color:${q.color}">${q.state} • ${q.ward_id}</div>
+                <div class="q-sub" style="color:${q.color}">${q.state} • ${q.ward_id} • <span style="font-size:9px;opacity:0.6;">📍 click to locate</span></div>
             </div>
             <div class="q-score" style="color:${q.color}">${q.risk_score}</div>
         </div>
     `).join('');
+}
+
+function zoomToItem(index) {
+    if (!dashboard || !configData) return;
+    const queue = dashboard.priority_queue || [];
+    const item = queue[index];
+    if (!item) return;
+
+    // Remove previous highlight
+    if (highlightLine) { map.removeLayer(highlightLine); highlightLine = null; }
+
+    if (item.type === 'waste') {
+        // Zoom to the single dustbin
+        const info = configData.dustbins[item.id];
+        if (!info) return;
+        map.flyTo([info.lat, info.lng], 17, { duration: 1.2 });
+
+        // Pulse the marker
+        const marker = markers[item.id];
+        if (marker) {
+            marker.setStyle({ fillColor: '#ffffff', radius: 14 });
+            marker.openPopup();
+            setTimeout(() => {
+                marker.setStyle({ fillColor: item.color || '#EF4444', radius: 10 });
+            }, 1500);
+        }
+    } else if (item.type === 'road') {
+        // Extract dustbin IDs from road issue data
+        const roadIssues = dashboard.road_issues || [];
+        const ri = roadIssues.find(r => r.event_id === item.id);
+        if (!ri) {
+            // Fallback: zoom to ward center
+            const wardInfo = configData.wards?.[item.ward_id];
+            if (wardInfo) map.flyTo([wardInfo.lat, wardInfo.lng], 15, { duration: 1.2 });
+            return;
+        }
+
+        // Zoom to fit both dustbin points
+        const bounds = L.latLngBounds(
+            [ri.from_lat, ri.from_lng],
+            [ri.to_lat, ri.to_lng]
+        );
+        map.flyToBounds(bounds.pad(0.3), { duration: 1.2 });
+
+        // Draw a bright highlight over the OSRM-routed path
+        fetchRoadPath(ri).then(coords => {
+            if (highlightLine) map.removeLayer(highlightLine);
+            highlightLine = L.polyline(coords, {
+                color: '#FFD700', weight: 8, opacity: 1, dashArray: null,
+                className: 'highlight-pulse'
+            }).addTo(map);
+            highlightLine.bindPopup(`<b>🎯 SELECTED: ${ri.issue_type.toUpperCase()}</b><br>Severity: ${ri.severity}/5`).openPopup();
+
+            // Fade highlight after 5 seconds
+            setTimeout(() => {
+                if (highlightLine) {
+                    highlightLine.setStyle({ color: '#EA580C', weight: 5, opacity: 0.85, dashArray: '6,6' });
+                }
+            }, 5000);
+        });
+    }
 }
 
 function renderAnalytics() {
