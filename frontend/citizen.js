@@ -347,22 +347,71 @@ function renderAlertsPage() {
     if (!queue.length) { container.innerHTML = '<div class="reports-empty">No active alerts. System is operating normally.</div>'; return; }
 
     container.innerHTML = queue.map((q, i) => {
-        const bgColor = q.type === 'waste' ? `${q.color}10` : '#FFF7ED';
         const iconBg = q.type === 'waste' ? `${q.color}20` : '#FFEDD5';
         return `
-            <div class="alert-card" style="border-left:4px solid ${q.color};">
+            <div class="alert-card" style="border-left:4px solid ${q.color};cursor:pointer;" onclick='zoomToAlert(${JSON.stringify(q)})'>
                 <div class="alert-card-rank">#${i + 1}</div>
                 <div class="alert-card-icon" style="background:${iconBg};">
                     ${q.type === 'waste' ? '🗑️' : '🚧'}
                 </div>
                 <div class="alert-card-info">
                     <div class="alert-card-name">${q.name}</div>
-                    <div class="alert-card-sub">${q.state} · ${q.ward_id}</div>
+                    <div class="alert-card-sub">${q.state} · ${q.ward_id} · <span style="color:var(--accent);font-weight:700;">↗ CLICK TO LOCATE</span></div>
                 </div>
                 <div class="alert-card-score" style="color:${q.color};">${q.risk_score}</div>
             </div>
         `;
     }).join('');
+}
+
+function zoomToAlert(item) {
+    // Switch to Dashboard and zoom the map
+    switchSection('dashboard');
+
+    setTimeout(() => {
+        if (!dashMap) return;
+
+        if (item.type === 'waste') {
+            // Zoom to the dustbin marker
+            const info = configData?.dustbins[item.id];
+            if (!info) return;
+
+            dashMap.flyTo([info.lat, info.lng], 16, { duration: 1.2 });
+
+            // Flash the marker white → then revert
+            const marker = markers[item.id];
+            if (marker) {
+                const flashIcon = L.divIcon({
+                    className: '',
+                    html: `<div class="marker-icon marker-xl" style="background:#fff;box-shadow:0 0 24px rgba(255,255,255,0.9);">🗑️</div>`,
+                    iconSize: [42, 42], iconAnchor: [21, 21], popupAnchor: [0, -21]
+                });
+                marker.setIcon(flashIcon);
+                marker.openPopup();
+                setTimeout(() => {
+                    const stateClass = getMarkerStateClass(item.state);
+                    marker.setIcon(createDivIcon(stateClass, 'marker-lg'));
+                }, 2000);
+            }
+        } else if (item.type === 'road') {
+            // Zoom to fit the road endpoints
+            if (item.from_lat && item.to_lat) {
+                const bounds = L.latLngBounds(
+                    [item.from_lat, item.from_lng],
+                    [item.to_lat, item.to_lng]
+                ).pad(0.4);
+                dashMap.flyToBounds(bounds, { duration: 1.2 });
+
+                // Flash highlight polyline
+                const highlight = L.polyline(
+                    [[item.from_lat, item.from_lng], [item.to_lat, item.to_lng]],
+                    { color: '#FFFFFF', weight: 8, opacity: 0.8, dashArray: '4,8' }
+                ).addTo(dashMap);
+
+                setTimeout(() => dashMap.removeLayer(highlight), 3000);
+            }
+        }
+    }, 200);
 }
 
 // ── ROUTE PLANNER PAGE ──────────────────────────────────────────────
