@@ -364,7 +364,22 @@ def compute_dashboard_snapshot() -> dict:
     road_issues = []
     road_by_ward = {}  # ward_id → {report_count, total_severity}
 
+    # First pass: find all cleared road events
+    cleared_road_ids = set()
     for e in road_events:
+        if e.get("event_type") == "road_cleared":
+            cleared_road_ids.add(e.get("event_id", ""))
+
+    for e in road_events:
+        # Skip the clearance events themselves
+        if e.get("event_type") == "road_cleared":
+            continue
+
+        event_id = e.get("event_id", "")
+        # If this issue was cleared, skip it entirely
+        if event_id in cleared_road_ids:
+            continue
+
         ts_str = e.get("timestamp", "")
         ts_dt = _parse_ts(ts_str)
         if ts_dt < road_window_start_dt:
@@ -381,7 +396,7 @@ def compute_dashboard_snapshot() -> dict:
         to_info = DUSTBINS.get(to_bin, {})
 
         road_issues.append({
-            "event_id": e.get("event_id", ""),
+            "event_id": event_id,
             "from_dustbin": from_bin,
             "to_dustbin": to_bin,
             "from_lat": from_info.get("lat", 0),

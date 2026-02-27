@@ -66,25 +66,12 @@
         <!-- RIGHT: FORMS & ANALYTICS -->
         <aside class="panel-right">
             <div class="tabs">
-                <button class="tab-btn active" data-tab="tab-van">Van Confirm</button>
+                <button class="tab-btn active" data-tab="tab-clear">Clear Issues</button>
                 <button class="tab-btn" data-tab="tab-road">Road Form</button>
                 <button class="tab-btn" data-tab="tab-analytics">Analytics</button>
                 <button class="tab-btn" data-tab="tab-forecast">🔮 Forecast</button>
             </div>
 
-            <!-- TAB 1: VAN CONFIRMATION -->
-            <div class="tab-content active" id="tab-van">
-                <h3 style="font-size: 14px; margin-bottom: 16px;">Confirm Collection Dispatch</h3>
-                <div class="form-group">
-                    <label class="label">Ward</label>
-                    <select class="select" id="vanWard"></select>
-                </div>
-                <div class="form-group">
-                    <label class="label">Dustbin Asset ID</label>
-                    <select class="select" id="vanDustbin"></select>
-                </div>
-                <button class="btn btn-success" id="btnCollectionConfirm">Mark as Cleared</button>
-            </div>
 
             <!-- TAB 2: ROAD ISSUE VERIFICATION -->
             <div class="tab-content" id="tab-road">
@@ -125,6 +112,39 @@
                     </div>
                 </div>
                 <button class="btn btn-primary" id="btnRoadSubmit">Submit Road Issue</button>
+            </div>
+
+            <!-- TAB: CLEAR ISSUES -->
+            <div class="tab-content" id="tab-clear">
+                <h3 style="font-size: 14px; margin-bottom: 16px;">Resolve Infrastructure Issues</h3>
+
+                <div
+                    style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--success);">🗑️
+                        Clear Dustbin</div>
+                    <div class="form-group">
+                        <label class="label">Dustbin Asset ID</label>
+                        <select class="select" id="clearDustbinSelect">
+                            <option value="">— Select Dustbin —</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btnClearDustbin"
+                        style="width: 100%; background: var(--success);">Mark as Collected</button>
+                </div>
+
+                <div
+                    style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--success);">🚧 Clear
+                        Road Hazard</div>
+                    <div class="form-group">
+                        <label class="label">Active Road Issue</label>
+                        <select class="select" id="clearRoadSelect">
+                            <option value="">— Select Road Issue —</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btnClearRoad"
+                        style="width: 100%; background: var(--success);">Mark as Resolved</button>
+                </div>
             </div>
 
             <!-- TAB 3: WARD ANALYTICS -->

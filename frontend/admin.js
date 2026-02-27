@@ -137,9 +137,10 @@ async function loadConfig() {
         configData = await resp.json();
 
         // Populate Wards
-        const wardSelects = ['vanWard', 'roadWard'];
+        const wardSelects = ['roadWard'];
         wardSelects.forEach(id => {
             const el = document.getElementById(id);
+            if (!el) return;
             el.innerHTML = '<option value="">— Select Ward —</option>';
             for (const [wid, info] of Object.entries(configData.wards)) {
                 el.innerHTML += `<option value="${wid}">${info.name} (${wid})</option>`;
@@ -147,11 +148,14 @@ async function loadConfig() {
         });
 
         // Event Listeners for dependent dustbin selects
-        document.getElementById('vanWard').addEventListener('change', e => populateDustbins('vanDustbin', e.target.value));
         document.getElementById('roadWard').addEventListener('change', e => {
             populateDustbins('roadFrom', e.target.value);
             populateDustbins('roadTo', e.target.value);
         });
+
+        // Clear Issues Handlers
+        document.getElementById('btnClearDustbin')?.addEventListener('click', clearDustbin);
+        document.getElementById('btnClearRoad')?.addEventListener('click', clearRoad);
 
     } catch (e) { showToast('Config Load Failure', 'error'); }
 }
@@ -293,28 +297,6 @@ function initForms() {
         document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         roadSeverity = parseInt(e.target.dataset.val);
-    });
-
-    // Submit Van
-    document.getElementById('btnCollectionConfirm').addEventListener('click', async () => {
-        const btn = document.getElementById('btnCollectionConfirm');
-        const did = document.getElementById('vanDustbin').value;
-        if (!did) return showToast('Select Dustbin ID', 'error');
-
-        btn.disabled = true;
-        btn.textContent = 'Processing...';
-        try {
-            const resp = await fetch(`${API_BASE}/api/van/collection`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() },
-                body: JSON.stringify({ dustbin_id: did })
-            });
-            const result = await resp.json();
-            if (resp.ok) showToast('Collection Confirmed.', 'success');
-            else if (resp.status === 401) { showAuthModal(); showToast('Auth Token Expired', 'error'); }
-            else showToast(result.error, 'error');
-        } catch (e) { showToast('Network Failure', 'error'); }
-        btn.disabled = false;
-        btn.textContent = 'Mark as Cleared';
     });
 
     // Submit Road
@@ -461,6 +443,7 @@ function connectWebSocket() {
         updateMap();
         renderQueue();
         renderAnalytics();
+        populateClearDropdowns(); // Update the CLEAR ISSUES dropdowns dynamically
     };
 
     ws.onclose = () => {

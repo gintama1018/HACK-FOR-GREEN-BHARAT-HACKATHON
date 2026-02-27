@@ -156,6 +156,9 @@ class RoadIssueReport(BaseModel):
 class VanCollectionReport(BaseModel):
     dustbin_id: str
 
+class RoadClearReport(BaseModel):
+    event_id: str
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPERS — write strict event files
@@ -447,6 +450,31 @@ async def report_van_collection(
         "dustbin_id": report.dustbin_id,
         "file": filename,
         "message": f"Collection at {report.dustbin_id} ({dustbin['street']}) confirmed.",
+    })
+
+
+@app.post("/api/van/clear-road")
+async def report_road_cleared(
+    report: RoadClearReport,
+    authorization: Optional[str] = Header(None),
+):
+    """Admin: Mark a road issue as cleared. Requires auth token."""
+    if not _check_admin_token(authorization):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+
+    event = {
+        "event_id": report.event_id,
+        "timestamp": datetime.now().isoformat(),
+        "source": "admin",
+        "event_type": "road_cleared",
+    }
+
+    # Write a clearing event to the road logs
+    _write_event(ROAD_REPORT_DIR, "road", event)
+
+    return JSONResponse(content={
+        "status": "success",
+        "message": f"Road issue {report.event_id} marked as cleared."
     })
 
 
