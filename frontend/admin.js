@@ -27,8 +27,8 @@ async function fetchMultiRoutes(ri) {
     if (multiRouteCache[cacheKey]) return multiRouteCache[cacheKey];
 
     try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=3`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=true`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
         const data = await resp.json();
 
         if (data.routes && data.routes.length > 0) {
@@ -41,12 +41,11 @@ async function fetchMultiRoutes(ri) {
             return routes;
         }
     } catch (e) {
-        console.warn('OSRM multi-route fallback:', e.message);
+        console.warn('OSRM multi-route retry next tick:', e.message);
     }
 
-    const fallback = [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
-    multiRouteCache[cacheKey] = fallback;
-    return fallback;
+    // Fallback: NOT CACHED — will retry on next updateMap call
+    return [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
 }
 
 // Single-route fetch (used by zoomToItem highlight)
@@ -56,7 +55,7 @@ async function fetchRoadPath(ri) {
 
     try {
         const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
         const data = await resp.json();
 
         if (data.routes && data.routes.length > 0) {
@@ -65,12 +64,11 @@ async function fetchRoadPath(ri) {
             return coords;
         }
     } catch (e) {
-        console.warn('OSRM routing failed, using straight line fallback:', e.message);
+        console.warn('OSRM routing retry next tick:', e.message);
     }
 
-    const fallback = [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
-    routeCache[cacheKey] = fallback;
-    return fallback;
+    // Fallback: NOT CACHED — will retry
+    return [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
 }
 
 // ── INIT ────────────────────────────────────────────────────────────
