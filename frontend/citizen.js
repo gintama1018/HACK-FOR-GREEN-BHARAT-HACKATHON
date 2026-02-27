@@ -785,9 +785,98 @@ function addRecentReport(dustbinId) {
 let previousState = null;      // Previous WebSocket snapshot for diffing
 let liveEvents = [];           // All detected events
 const MAX_FEED_EVENTS = 50;    // Keep last 50 events in memory
+let seedGenerated = false;     // Track if initial seed events were created
+let heartbeatInterval = null;  // Periodic status heartbeat
+
+// Generate initial events from current state on first load
+function generateSeedEvents(data) {
+    const events = [];
+    const now = new Date().toLocaleTimeString();
+    const states = data.dustbin_states || [];
+    const roads = data.road_issues || [];
+
+    // System boot event
+    events.push({
+        type: 'info', icon: '⚡',
+        text: `InfraWatch connected — Monitoring ${states.length} dustbins across Delhi NCR`,
+        time: now, priority: 0
+    });
+
+    // Report existing road issues
+    for (const ri of roads) {
+        events.push({
+            type: 'road', icon: '🚧',
+            text: `Active ${ri.issue_type}: ${ri.from_dustbin} → ${ri.to_dustbin} (Severity ${ri.severity}/5)`,
+            time: now, priority: 1
+        });
+    }
+
+    // Report critical/escalated dustbins
+    const critical = states.filter(d => d.state === 'Critical');
+    const escalated = states.filter(d => d.state === 'Escalated');
+    const reported = states.filter(d => d.state === 'Reported');
+
+    for (const ds of critical) {
+        events.push({
+            type: 'critical', icon: '🔴',
+            text: `${ds.dustbin_id} is CRITICAL — ${ds.report_count || 0} reports on ${ds.street}`,
+            time: now, priority: 3,
+            pushTitle: '🚨 CRITICAL ALERT',
+            pushBody: `${ds.dustbin_id} (${ds.street}) is Critical`
+        });
+    }
+
+    for (const ds of escalated) {
+        events.push({
+            type: 'warning', icon: '🟡',
+            text: `${ds.dustbin_id} is ${ds.state} — ${ds.report_count || 0} reports on ${ds.street}`,
+            time: now, priority: 2
+        });
+    }
+
+    if (reported.length > 0) {
+        events.push({
+            type: 'info', icon: '📢',
+            text: `${reported.length} dustbin${reported.length > 1 ? 's' : ''} with pending civic reports`,
+            time: now, priority: 1
+        });
+    }
+
+    // Summary stats
+    const clear = states.filter(d => d.state === 'Clear').length;
+    const rate = states.length > 0 ? Math.round((clear / states.length) * 100) : 0;
+    events.push({
+        type: 'success', icon: '📊',
+        text: `City collection rate: ${rate}% · ${clear}/${states.length} bins clear · ${roads.length} road alerts active`,
+        time: now, priority: 0
+    });
+
+    return events;
+}
+
+// Periodic heartbeat to show system is alive
+function startHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+        if (!dashboard) return;
+        const now = new Date().toLocaleTimeString();
+        const states = dashboard.dustbin_states || [];
+        const clear = states.filter(d => d.state === 'Clear').length;
+        const critical = states.filter(d => d.state === 'Critical').length;
+        const escalated = states.filter(d => d.state === 'Escalated').length;
+        const roads = (dashboard.road_issues || []).length;
+        const rate = states.length > 0 ? Math.round((clear / states.length) * 100) : 0;
+
+        addFeedEvent({
+            type: 'info', icon: '📡',
+            text: `System pulse — Collection: ${rate}% · Critical: ${critical} · Escalated: ${escalated} · Road alerts: ${roads}`,
+            time: now, priority: 0
+        });
+    }, 30000); // Every 30 seconds
+}
 
 function detectStateChanges(newDashboard) {
-    if (!previousState) return; // First message — no diff possible
+    if (!previousState) return []; // First message — handled by seed generator
 
     const events = [];
     const now = new Date().toLocaleTimeString();
@@ -809,7 +898,6 @@ function detectStateChanges(newDashboard) {
             const newSev = severity[ds.state] ?? 0;
 
             if (newSev > prevSev) {
-                // Escalated UP
                 const isCritical = ds.state === 'Critical';
                 events.push({
                     type: isCritical ? 'critical' : 'warning',
@@ -821,10 +909,8 @@ function detectStateChanges(newDashboard) {
                     priority: isCritical ? 3 : 2
                 });
             } else if (newSev < prevSev) {
-                // De-escalated (collection happened)
                 events.push({
-                    type: 'success',
-                    icon: '✅',
+                    type: 'success', icon: '✅',
                     text: `${ds.dustbin_id} resolved → ${ds.state}. Collection complete on ${ds.street}`,
                     time: now,
                     pushTitle: '✅ Area Cleared',
@@ -838,11 +924,9 @@ function detectStateChanges(newDashboard) {
         if (ds.report_count > (prev.report_count || 0)) {
             const newCount = ds.report_count - (prev.report_count || 0);
             events.push({
-                type: 'info',
-                icon: '📢',
+                type: 'info', icon: '📢',
                 text: `${newCount} new civic report${newCount > 1 ? 's' : ''} for ${ds.dustbin_id} on ${ds.street}`,
-                time: now,
-                priority: 1
+                time: now, priority: 1
             });
         }
     }
@@ -852,8 +936,7 @@ function detectStateChanges(newDashboard) {
     for (const ri of (newDashboard.road_issues || [])) {
         if (!prevRoadIds.has(ri.event_id)) {
             events.push({
-                type: 'road',
-                icon: '🚧',
+                type: 'road', icon: '🚧',
                 text: `New ${ri.issue_type} reported: ${ri.from_dustbin} → ${ri.to_dustbin} (Severity ${ri.severity}/5)`,
                 time: now,
                 pushTitle: '🚧 Road Hazard Alert',
@@ -932,6 +1015,19 @@ function firePushNotification(event) {
 }
 
 function processStateChanges(newDashboard) {
+    // Generate seed events on FIRST WebSocket message
+    if (!seedGenerated) {
+        seedGenerated = true;
+        const seedEvents = generateSeedEvents(newDashboard);
+        // Add seed events in reverse so they appear chronologically (oldest first)
+        for (const event of seedEvents.reverse()) {
+            addFeedEvent(event);
+        }
+        startHeartbeat();
+        updateAlertBadge();
+        return;
+    }
+
     const events = detectStateChanges(newDashboard);
     if (!events || events.length === 0) return;
 
