@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InfraWatch Nexus — Citizens' Portal</title>
     <meta name="description" content="Live civic transparency interface for tracking waste and road infrastructure.">
-    <link rel="stylesheet" href="/static/citizen.css?v=13">
+    <link rel="stylesheet" href="/static/citizen.css?v=14">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -40,12 +40,7 @@
                 <span class="nav-icon">🔔</span> Alerts
                 <span class="nav-badge" id="alertBadge">0</span>
             </a>
-            <a class="nav-item" data-section="routeplanner" onclick="switchSection('routeplanner')">
-                <span class="nav-icon">🚛</span> Route Planner
-            </a>
-            <a class="nav-item" data-section="reports" onclick="switchSection('reports')">
-                <span class="nav-icon">📋</span> Reports
-            </a>
+
             <a class="nav-item" data-section="settings" onclick="switchSection('settings')">
                 <span class="nav-icon">⚙️</span> Settings
             </a>
@@ -190,10 +185,6 @@
                         <div id="roadAlertsList" class="alert-list"></div>
                     </div>
 
-                    <!-- Generate Pickup Route Button -->
-                    <button class="btn-route" onclick="switchSection('routeplanner')">
-                        <span>🚛</span> Generate Pickup Route <span class="route-arrow">›</span>
-                    </button>
                 </div>
             </div>
 
@@ -288,39 +279,7 @@
             </div>
         </section>
 
-        <!-- ═══════════════════════════════════════════════════════
-             SECTION: ROUTE PLANNER
-             ═══════════════════════════════════════════════════════ -->
-        <section class="content-section" id="section-routeplanner">
-            <div class="section-header">
-                <h2>Route Planner</h2>
-                <p class="section-desc">Optimized collection routes based on priority</p>
-            </div>
-            <div class="route-layout">
-                <div id="routeMap" class="route-map"></div>
-                <div class="route-sidebar">
-                    <h3>Priority Stops</h3>
-                    <div id="routeStops" class="route-stops"></div>
-                    <button class="btn-primary" id="btnGenerateRoute" style="margin-top:16px;width:100%;">
-                        🚛 Generate Optimized Route
-                    </button>
-                    <div class="route-stats" id="routeStats"></div>
-                </div>
-            </div>
-        </section>
 
-        <!-- ═══════════════════════════════════════════════════════
-             SECTION: REPORTS
-             ═══════════════════════════════════════════════════════ -->
-        <section class="content-section" id="section-reports">
-            <div class="section-header">
-                <h2>Reports History</h2>
-                <p class="section-desc">All submitted civic reports</p>
-            </div>
-            <div class="reports-table" id="reportsTable">
-                <div class="reports-empty">Reports will appear here as citizens submit them.</div>
-            </div>
-        </section>
 
         <!-- ═══════════════════════════════════════════════════════
              SECTION: SETTINGS

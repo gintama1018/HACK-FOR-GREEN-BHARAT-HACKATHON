@@ -171,21 +171,16 @@ function switchSection(name) {
     if (name === 'citymap' && !fullMap) {
         setTimeout(() => initFullMap(), 100);
     }
-    if (name === 'routeplanner' && !routeMap) {
-        setTimeout(() => initRouteMap(), 100);
-    }
 
     // Invalidate map size when switching (Leaflet needs this)
     setTimeout(() => {
         if (name === 'dashboard' && dashMap) dashMap.invalidateSize();
         if (name === 'citymap' && fullMap) fullMap.invalidateSize();
-        if (name === 'routeplanner' && routeMap) routeMap.invalidateSize();
     }, 150);
 
     // Render section data
     if (name === 'analytics') renderAnalyticsPage();
     if (name === 'alerts') renderAlertsPage();
-    if (name === 'routeplanner') renderRoutePage();
 }
 
 function switchPanelTab(btn) {
@@ -228,10 +223,7 @@ function initFullMap() {
     updateFullMap();
 }
 
-function initRouteMap() {
-    routeMap = createMapInstance('routeMap', 12);
-    addDustbinMarkers(routeMap, routeMarkers);
-}
+
 
 // ── MAP UPDATES ─────────────────────────────────────────────────────
 function updateMarkers(markerStore, dustbinStates) {
@@ -567,73 +559,7 @@ function zoomToAlert(item) {
     }, 250);
 }
 
-// ── ROUTE PLANNER PAGE ──────────────────────────────────────────────
-function renderRoutePage() {
-    const stopsContainer = document.getElementById('routeStops');
-    const statsContainer = document.getElementById('routeStats');
-    const queue = (dashboard?.priority_queue || []).filter(q => q.type === 'waste');
 
-    if (!queue.length) {
-        stopsContainer.innerHTML = '<div class="recent-empty">No priority stops to route.</div>';
-        statsContainer.innerHTML = '';
-        return;
-    }
-
-    const topStops = queue.slice(0, 8);
-    stopsContainer.innerHTML = topStops.map((q, i) => `
-        <div class="route-stop">
-            <div class="route-stop-num">${i + 1}</div>
-            <div style="flex:1;">
-                <div style="font-weight:600;">${q.id}</div>
-                <div style="font-size:10px;color:var(--text-muted);">${q.ward_id} · ${q.state}</div>
-            </div>
-            <span style="font-weight:700;color:${q.color};">${q.risk_score}</span>
-        </div>
-    `).join('');
-
-    statsContainer.innerHTML = `
-        <div style="font-weight:600;margin-bottom:8px;">Route Summary</div>
-        <div>Priority Stops: <strong>${topStops.length}</strong></div>
-        <div>Estimated Time: <strong>${topStops.length * 8} min</strong></div>
-        <div>Coverage: <strong>${new Set(topStops.map(q => q.ward_id)).size} wards</strong></div>
-    `;
-
-    // Draw route on map
-    if (routeMap) {
-        routeLines.forEach(l => routeMap.removeLayer(l));
-        routeLines = [];
-
-        // Connect stops with OSRM-routed lines
-        for (let i = 0; i < topStops.length - 1; i++) {
-            const fromInfo = configData?.dustbins[topStops[i].id];
-            const toInfo = configData?.dustbins[topStops[i + 1].id];
-            if (!fromInfo || !toInfo) continue;
-
-            const ri = { from_lat: fromInfo.lat, from_lng: fromInfo.lng, to_lat: toInfo.lat, to_lng: toInfo.lng };
-            fetchRoadPath(ri).then(coords => {
-                const line = L.polyline(coords, {
-                    color: '#2563EB', weight: 4, opacity: 0.9
-                }).addTo(routeMap);
-                routeLines.push(line);
-            });
-        }
-
-        // Zoom to fit all stops
-        const stopCoords = topStops
-            .map(q => configData?.dustbins[q.id])
-            .filter(Boolean)
-            .map(d => [d.lat, d.lng]);
-        if (stopCoords.length > 1) {
-            routeMap.flyToBounds(L.latLngBounds(stopCoords).pad(0.2));
-        }
-    }
-}
-
-// Wire generate route button
-document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('btnGenerateRoute');
-    if (btn) btn.addEventListener('click', renderRoutePage);
-});
 
 // ── REPORT FLOW ─────────────────────────────────────────────────────
 function initReportFlow() {
