@@ -32,7 +32,38 @@ let recentReports = [];
 // Route cache
 const routeCache = {};
 
-// ── OSRM ROUTING ────────────────────────────────────────────────────
+// ── OSRM ROUTING — MULTI-ROUTE ──────────────────────────────────────
+const multiRouteCache = {};
+
+async function fetchMultiRoutes(ri) {
+    const cacheKey = `multi-${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
+    if (multiRouteCache[cacheKey]) return multiRouteCache[cacheKey];
+
+    try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=3`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const data = await resp.json();
+
+        if (data.routes && data.routes.length > 0) {
+            const routes = data.routes.map(route => ({
+                coords: route.geometry.coordinates.map(c => [c[1], c[0]]),
+                distance: route.distance,
+                duration: route.duration
+            }));
+            multiRouteCache[cacheKey] = routes;
+            return routes;
+        }
+    } catch (e) {
+        console.warn('OSRM multi-route fallback:', e.message);
+    }
+
+    // Fallback: single straight line
+    const fallback = [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
+    multiRouteCache[cacheKey] = fallback;
+    return fallback;
+}
+
+// Legacy single-route (still used by zoomToAlert highlight)
 async function fetchRoadPath(ri) {
     const cacheKey = `${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
     if (routeCache[cacheKey]) return routeCache[cacheKey];
@@ -233,12 +264,41 @@ function drawRoadLines(map, lineStore, roadIssues) {
     lineStore.length = 0;
 
     for (const ri of (roadIssues || [])) {
-        fetchRoadPath(ri).then(coords => {
-            const line = L.polyline(coords, {
-                color: '#EA580C', weight: 4, dashArray: '6,6', opacity: 0.8
+        fetchMultiRoutes(ri).then(routes => {
+            if (!routes || routes.length === 0) return;
+
+            // Draw ALTERNATIVE routes first (behind, yellow)
+            for (let i = routes.length - 1; i >= 1; i--) {
+                const altLine = L.polyline(routes[i].coords, {
+                    color: '#FBBF24',    // Yellow
+                    weight: 3,
+                    dashArray: '4,8',
+                    opacity: 0.65
+                }).addTo(map);
+                const distKm = (routes[i].distance / 1000).toFixed(1);
+                const timeMin = Math.round(routes[i].duration / 60);
+                altLine.bindPopup(
+                    `<b>⚠️ ALTERNATIVE APPROACH</b><br>` +
+                    `Route to hazard zone<br>` +
+                    `<span style="font-size:11px;color:#94A3B8;">Distance: ${distKm} km · ~${timeMin} min</span>`
+                );
+                lineStore.push(altLine);
+            }
+
+            // Draw MAIN hazard route on top (red, thick)
+            const mainLine = L.polyline(routes[0].coords, {
+                color: '#EF4444',    // Red
+                weight: 5,
+                dashArray: '8,6',
+                opacity: 0.9
             }).addTo(map);
-            line.bindPopup(`<b>🚧 ${ri.issue_type.toUpperCase()}</b><br>Severity: ${ri.severity}/5`);
-            lineStore.push(line);
+            const mainDistKm = (routes[0].distance / 1000).toFixed(1);
+            mainLine.bindPopup(
+                `<b>🔴 MAIN HAZARD ROUTE</b><br>` +
+                `🚧 ${ri.issue_type.toUpperCase()} — Severity ${ri.severity}/5<br>` +
+                `<span style="font-size:11px;color:#94A3B8;">${ri.from_dustbin} → ${ri.to_dustbin} · ${mainDistKm} km</span>`
+            );
+            lineStore.push(mainLine);
         });
     }
 }
