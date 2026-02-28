@@ -122,7 +122,10 @@ public class MainActivity extends Activity {
 
         webView.setVisibility(View.VISIBLE);
         
-        String serverUrl = "https://infrawatch-nexus-tnlf.onrender.com/";
+        // Use localhost for development/testing
+        // For emulator: 10.0.2.2 (Android emulator maps to host localhost)
+        // For physical device via USB: use your computer's local IP (e.g., http://192.168.1.x:8000/)
+        String serverUrl = "http://192.168.1.35/24:8000/";
         webView.loadUrl(serverUrl);
     }
 
