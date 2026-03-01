@@ -120,6 +120,27 @@ DUSTBINS = {
     "MCD-W12-006": {"ward_id": "W12", "lat": 28.6945, "lng": 77.2830, "street": "Maujpur Chowk, Shahdara North", "capacity_liters": 240},
 }
 
+# ── Helper Functions (used by api/server.py) ─────────────────────────────────
+import re
+
+_DUSTBIN_RE = re.compile(r"^MCD-W\d{2}-\d{3}$")
+
+
+def validate_dustbin_id(dustbin_id: str) -> bool:
+    """Return True if the ID is syntactically valid AND exists in the registry."""
+    return bool(_DUSTBIN_RE.match(dustbin_id)) and dustbin_id in DUSTBINS
+
+
+def get_dustbin(dustbin_id: str) -> dict | None:
+    """Return the dustbin dict for a given ID, or None if not found."""
+    return DUSTBINS.get(dustbin_id)
+
+
+def get_ward_dustbins(ward_id: str) -> dict:
+    """Return {dustbin_id: info} for all dustbins belonging to a ward."""
+    return {did: info for did, info in DUSTBINS.items() if info["ward_id"] == ward_id}
+
+
 # Quick stats
 if __name__ == "__main__":
     print(f"Total dustbins: {len(DUSTBINS)}")
