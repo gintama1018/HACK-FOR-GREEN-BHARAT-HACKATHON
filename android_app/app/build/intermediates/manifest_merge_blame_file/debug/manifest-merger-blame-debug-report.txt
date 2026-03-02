@@ -1,0 +1,113 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="org.infrawatch.nexus"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:5:5-67
+11-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:6:5-79
+12-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.CAMERA" />
+13-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:7:5-65
+13-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:7:22-62
+14    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+14-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:8:5-80
+14-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:8:22-77
+15    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+15-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:9:5-79
+15-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:9:22-76
+16    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+16-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:10:5-81
+16-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:10:22-78
+17
+18    <uses-feature
+18-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:12:5-85
+19        android:name="android.hardware.camera"
+19-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:12:19-57
+20        android:required="false" />
+20-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:12:58-82
+21
+22    <permission
+22-->[androidx.core:core:1.9.0] /home/mayank/.gradle/caches/transforms-3/f0f4ee7c3b88100b2d2cd4b05ab423cd/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
+23        android:name="org.infrawatch.nexus.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+23-->[androidx.core:core:1.9.0] /home/mayank/.gradle/caches/transforms-3/f0f4ee7c3b88100b2d2cd4b05ab423cd/transformed/core-1.9.0/AndroidManifest.xml:23:9-81
+24        android:protectionLevel="signature" />
+24-->[androidx.core:core:1.9.0] /home/mayank/.gradle/caches/transforms-3/f0f4ee7c3b88100b2d2cd4b05ab423cd/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
+25
+26    <uses-permission android:name="org.infrawatch.nexus.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+26-->[androidx.core:core:1.9.0] /home/mayank/.gradle/caches/transforms-3/f0f4ee7c3b88100b2d2cd4b05ab423cd/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
+26-->[androidx.core:core:1.9.0] /home/mayank/.gradle/caches/transforms-3/f0f4ee7c3b88100b2d2cd4b05ab423cd/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
+27
+28    <application
+28-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:14:5-34:19
+29        android:allowBackup="true"
+29-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:15:9-35
+30        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+30-->[androidx.core:core:1.9.0] /home/mayank/.gradle/caches/transforms-3/f0f4ee7c3b88100b2d2cd4b05ab423cd/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
+31        android:debuggable="true"
+32        android:extractNativeLibs="false"
+33        android:icon="@drawable/ic_launcher"
+33-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:16:9-45
+34        android:label="InfraWatch Nexus"
+34-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:17:9-41
+35        android:supportsRtl="true"
+35-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:18:9-35
+36        android:theme="@android:style/Theme.NoTitleBar"
+36-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:19:9-56
+37        android:usesCleartextTraffic="true" >
+37-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:20:9-44
+38        <activity
+38-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:22:9-32:20
+39            android:name="org.infrawatch.nexus.MainActivity"
+39-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:23:13-41
+40            android:configChanges="orientation|keyboardHidden|screenSize"
+40-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:26:13-74
+41            android:exported="true"
+41-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:24:13-36
+42            android:launchMode="singleTask"
+42-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:25:13-44
+43            android:windowSoftInputMode="adjustResize" >
+43-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:27:13-55
+44            <intent-filter>
+44-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:28:13-31:29
+45                <action android:name="android.intent.action.MAIN" />
+45-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:29:17-69
+45-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:29:25-66
+46
+47                <category android:name="android.intent.category.LAUNCHER" />
+47-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:30:17-77
+47-->/home/mayank/Work/hackuem/HACK-FOR-GREEN-BHARAT-HACKATHON/android_app/app/src/main/AndroidManifest.xml:30:27-74
+48            </intent-filter>
+49        </activity>
+50
+51        <provider
+51-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+52            android:name="androidx.startup.InitializationProvider"
+52-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:25:13-67
+53            android:authorities="org.infrawatch.nexus.androidx-startup"
+53-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:26:13-68
+54            android:exported="false" >
+54-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:27:13-37
+55            <meta-data
+55-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+56                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+56-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:30:17-75
+57                android:value="androidx.startup" />
+57-->[androidx.emoji2:emoji2:1.2.0] /home/mayank/.gradle/caches/transforms-3/4ef2d37eca9ad04b2c397a091ea18fe4/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:31:17-49
+58            <meta-data
+58-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/mayank/.gradle/caches/transforms-3/a4c8d0ec904ebc7ffc6031b8d3671ae8/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
+59                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+59-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/mayank/.gradle/caches/transforms-3/a4c8d0ec904ebc7ffc6031b8d3671ae8/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
+60                android:value="androidx.startup" />
+60-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/mayank/.gradle/caches/transforms-3/a4c8d0ec904ebc7ffc6031b8d3671ae8/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
+61        </provider>
+62    </application>
+63
+64</manifest>

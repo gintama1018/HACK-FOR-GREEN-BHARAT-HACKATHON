@@ -162,10 +162,20 @@ function switchSection(name) {
         item.classList.toggle('active', item.dataset.section === name);
     });
 
+    // Update bottom nav active state (mobile)
+    document.querySelectorAll('.bottom-nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.section === name);
+    });
+
     // Show/hide content sections
     document.querySelectorAll('.content-section').forEach(sec => {
         sec.classList.toggle('active', sec.id === `section-${name}`);
     });
+
+    // Close mobile sidebar when navigating
+    if (window.innerWidth <= 768) {
+        closeSidebar();
+    }
 
     // Initialize section-specific maps on first visit
     if (name === 'citymap' && !fullMap) {
@@ -181,6 +191,23 @@ function switchSection(name) {
     // Render section data
     if (name === 'analytics') renderAnalyticsPage();
     if (name === 'alerts') renderAlertsPage();
+}
+
+// ── MOBILE QUICK REPORT ──────────────────────────────────────────────
+function quickReport() {
+    // On mobile, scroll to report form on dashboard
+    if (window.innerWidth <= 768) {
+        switchSection('dashboard');
+        setTimeout(() => {
+            const reportPanel = document.getElementById('ptab-report');
+            if (reportPanel) {
+                reportPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+    } else {
+        // Desktop: open sidebar
+        switchSection('dashboard');
+    }
 }
 
 function switchPanelTab(btn) {
@@ -1062,3 +1089,44 @@ function showToast(msg, type = 'info') {
     c.appendChild(t);
     setTimeout(() => t.remove(), 4000);
 }
+
+// ── MOBILE SIDEBAR TOGGLE ─────────────────────────────────────────────
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('active');
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.remove('active');
+    overlay.classList.remove('active');
+}
+
+// Close sidebar when navigating on mobile
+document.addEventListener('DOMContentLoaded', function() {
+    // Sidebar nav items
+    const navItems = document.querySelectorAll('.nav-item[data-section]');
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth <= 768) {
+                closeSidebar();
+            }
+        });
+    });
+
+    // Also close when clicking overlay
+    const overlay = document.getElementById('sidebarOverlay');
+    if (overlay) {
+        overlay.addEventListener('click', closeSidebar);
+    }
+});
+
+// Handle window resize
+window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) {
+        closeSidebar();
+    }
+});
