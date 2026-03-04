@@ -2,17 +2,18 @@
 
 ![CI](https://github.com/gintama1018/HACK-FOR-GREEN-BHARAT-HACKATHON/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green?logo=fastapi)
 ![Pathway](https://img.shields.io/badge/Pathway-Streaming_Engine-yellow?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAA)
+![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-purple?logo=google)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-Hackathon-orange)
 
 **InfraWatch Nexus** is a production-grade, real-time AI command center for urban sanitation and infrastructure management. It connects citizens directly to municipal dispatch operations through streaming event architecture, computer vision AI, and live weather-aware risk scoring.
 
-> **🔗 Live Demo:** [https://infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com)
-> **🔐 Admin Portal:** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) (Token: `INFRAWATCH_ADMIN_2026`)
+> **Live Demo:** [https://infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com)
+> **Admin Portal:** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) (Token: `INFRAWATCH_ADMIN_2026`)
 
-### ⚡ Quickstart — Run in 3 Commands
+### Quickstart — Run in 3 Commands
 
 ```bash
 git clone https://github.com/gintama1018/HACK-FOR-GREEN-BHARAT-HACKATHON.git
@@ -22,14 +23,47 @@ bash start.sh           # Citizens' Portal at localhost:8000 | Admin at localhos
 
 ---
 
-## 📊 Data Sources & Credibility
+## The Origin Story — Why We Built This
+
+> *"We didn't start with code. We started with frustration."*
+
+Every monsoon season, the same headlines repeat across India — overflowing garbage bins breeding disease, potholes swallowing motorcycles, waterlogged intersections turning into death traps. Every year, **3,500+ people die** from pothole-related road accidents alone ([MoRTH](https://morth.nic.in/)). Every year, citizens file thousands of complaints that disappear into bureaucratic black holes. Every year, the government promises "smart city" solutions — and delivers another static complaint portal that nobody uses.
+
+We saw this cycle firsthand. In Delhi, the Municipal Corporation manages **106 designated waste collection points** across 12 zones. These "dhalaos" — open collection spots — regularly overflow during monsoons, becoming breeding grounds for dengue and cholera. The data existed (we found the official MCD PDF listing every single site), but it sat locked in a government document that nobody had ever turned into a living, breathing system.
+
+### The Moment It Clicked
+
+During the **Hack For Green Bharat Hackathon**, we were introduced to the **Pathway streaming engine** — a real-time data processing framework that reacts to changes the instant they happen. Not batch jobs. Not database queries. *Instant reaction.*
+
+That's when the lightbulb went off:
+
+**What if the city itself could think?**
+
+Not a dashboard that you *check*. A nervous system that *feels*. One that knows when garbage is piling up, knows it's about to rain, and automatically pushes the most dangerous situation to the top of the dispatch queue — before tragedy strikes.
+
+We named it **InfraWatch Nexus** — because it sits at the nexus of citizen reports, weather data, and civic action.
+
+### What Makes This Different
+
+Most hackathon dashboards are just pretty front-ends for static data. We built something fundamentally different:
+
+1. **Citizens don't fill forms.** They take a photo. AI does the rest. Under 5 seconds.
+2. **The system doesn't wait to be asked.** Pathway watches all incoming data and updates risk scores in real-time. When it starts raining, every open waste pile in the city gets automatically re-prioritized.
+3. **It uses real government data.** Not mock data. Not placeholder coordinates. We programmatically extracted 72 actual MCD collection points from an official RO document and geocoded every one.
+4. **The architecture is production-ready.** Not a prototype. The same code runs locally and on our live deployment at Render.com for under $15/month.
+
+> *"The goal is not to build another complaint box. The goal is to build a civic nervous system that feels danger before tragedy strikes."*
+
+---
+
+## Data Sources & Credibility
 
 > **All infrastructure data in this project is sourced from official government records.**
 
 | Data Layer | Source | Type |
 |------------|--------|------|
 | **Dustbin / Dhalao Locations** | **Municipal Corporation of Delhi (MCD)** — RO No. 20/DPI/MCD/2024-25 | Official Government PDF |
-| **Weather (Rainfall)** | **WeatherAPI.com** — Live polling every 5 min | Real-time API |
+| **Weather (Rainfall)** | **WeatherAPI.com** — Live polling every 10 min | Real-time API |
 | **Citizen Reports** | **Live user submissions** — AI-analyzed via Gemini Vision | Real-time user data |
 | **Road Hazard Reports** | **Admin-submitted** — GPS-tagged between MCD collection points | Real-time admin data |
 
@@ -40,7 +74,7 @@ The 72-point dustbin registry (`config/dustbins.py`) is built from the official 
 **Source Document:** [RO No. 20/DPI/MCD/2024-25 (PDF)](https://mcdonline.nic.in/portal/downloadFile/cnd_p_notice_240725043017717.pdf)
 **Published by:** Municipal Corporation of Delhi (mcdonline.nic.in)
 
-Data was **extracted programmatically** using `pdfplumber` and **geocoded for spatial analysis** using verified Delhi GPS coordinates. Each entry in the registry maps to a real JE Store or designated MCD collection point.
+Data was **extracted programmatically** using `pdfplumber` and **geocoded for spatial analysis** using verified Delhi GPS coordinates. Each entry maps to a real JE Store or designated MCD collection point.
 
 **MCD Zones Covered:**
 
@@ -61,22 +95,22 @@ Data was **extracted programmatically** using `pdfplumber` and **geocoded for sp
 
 ---
 
-## 🚀 The Problem We Solve
+## The Problem We Solve
 
 Traditional municipal reporting is **reactive, fragmented, and blind**:
 
 | Problem | Impact |
 |---------|--------|
-| Citizens fill lengthy complaint forms → reports lost in bureaucracy | **0% transparency** |
+| Citizens fill lengthy complaint forms, reports lost in bureaucracy | **0% transparency** |
 | Garbage trucks follow static schedules even when bins are empty | **Wasted fuel, higher emissions** |
 | Road hazards (potholes, waterlogging) aren't mapped dynamically | **3,500+ deaths/year** ([MoRTH](https://morth.nic.in/)) |
-| No weather integration → blocked drains become health emergencies during rain | **Epidemic risk** |
+| No weather integration — blocked drains become health emergencies during rain | **Epidemic risk** |
 
 **InfraWatch Nexus replaces all of this** with a single AI-powered, weather-aware, real-time command center.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TD
@@ -86,11 +120,11 @@ graph TD
     classDef state fill:#0F172A,stroke:#64748B,stroke-width:2px,stroke-dasharray: 4 4,color:#fff
 
     subgraph "Public Interface"
-        citizen["👤 Citizens' Portal<br>(SPA with Sidebar Nav)"]:::portal
+        citizen["Citizens' Portal<br>(Neumorphic SPA with Sidebar Nav)"]:::portal
     end
 
     subgraph "Municipal Operations"
-        admin["⚙️ Admin Command Center<br>(Priority Queue + Clear Issues)"]:::portal
+        admin["Admin Command Center<br>(Priority Queue + Clear Issues + Forecasting)"]:::portal
     end
 
     subgraph "Ingestion & AI Edge (FastAPI)"
@@ -100,7 +134,7 @@ graph TD
     end
 
     subgraph "Core Nervous System (Pathway)"
-        pathway["Pathway Streaming Engine<br>(Event-Time Windows)"]:::engine
+        pathway["Pathway Streaming Engine<br>(Event-Time Windows + Risk Scoring)"]:::engine
         state_db[("Atomic Dashboard State<br>& Priority Triage")]:::state
     end
 
@@ -109,7 +143,7 @@ graph TD
     gemini --"Extracts MCD Asset ID"--> api
     api --"Appends JSON Event"--> pathway
 
-    weather --"Live Rainfall (5min poll)"--> pathway
+    weather --"Live Rainfall (10min poll)"--> pathway
 
     pathway --"Risk Scoring + State Machine"--> state_db
     state_db --"WebSocket Broadcast"--> admin
@@ -118,30 +152,42 @@ graph TD
     admin --"Clear Dustbin / Road Issue"--> api
 ```
 
+### Why Pathway? (The Secret Sauce)
+
+Most dashboards use passive databases — you have to *ask* them for information. Pathway is fundamentally different:
+
+1. **Standard Databases are Passive:** You query them: "What's the risk right now?"
+2. **Pathway is Active:** We define **Standing Intelligence Rules**. As data flows in (rain starts, a truck is delayed), the risk score updates *instantly*.
+3. **Result:** The system is always up-to-date. We don't query for risk — the risk state is *pushed* to all connected clients.
+
+> **One-line rule from the hackathon:** *"If your system does not update automatically when new data arrives, it is not a Pathway project."* — Ours does.
+
 ### Responsibility Matrix
 
 | Layer | Does | Does NOT |
 |-------|------|----------|
 | **Citizens' Portal** | Accept photo, show confirmation, display live state | Compute anything |
-| **Admin Portal** | Report road issues, dispatch vans, clear infrastructure | Compute anything |
+| **Admin Portal** | Report road issues, dispatch vans, clear infrastructure, forecast risk | Compute anything |
 | **FastAPI** | Validate, write events, dedup, auth, broadcast | Score, rank, aggregate |
 | **Pathway** | Aggregate, score, rank, state transitions, weather join | Serve HTTP, touch frontend |
 | **WebSocket** | Broadcast single atomic state to all clients | Compute, filter |
 
 ---
 
-## ✨ Feature Set
+## Feature Set
 
-### 1. AI-Powered Citizen Reporting
-- **Gemini 2.5 Flash Vision**: Citizens upload a single photo → AI instantly extracts the exact MCD dustbin ID (e.g., `MCD-W04-001`)
+### 1. AI-Powered Citizen Reporting (Zero Friction)
+- **Gemini 2.5 Flash Vision**: Citizens upload a single photo — AI instantly extracts the exact MCD dustbin ID (e.g., `MCD-W04-001`)
 - **Zero friction**: No forms, no dropdowns. One photo = one verified report
 - **Manual fallback**: If AI fails, citizen gets a ward-filtered dropdown for manual selection
+- **Geolocation**: GPS coordinates captured with every report for spatial analysis
 
 ### 2. Pathway Streaming Engine (The Brain)
 - **Event-time windowing**: 2-hour rolling windows for waste reports, 6-hour for road issues
 - **Dustbin State Machine**: `Clear → Reported → Escalated → Critical → Cleared`
 - **Weather-aware risk scoring**: Live rainfall from WeatherAPI.com acts as a multiplier — rain + open waste = instant escalation
 - **Atomic JSON output**: Dashboard state written via temp-file + `os.replace()` — zero partial reads
+- **3-second recompute loop**: Dashboard always reflects the latest state
 
 ### 3. Admin Command Center
 - **Live Priority Dispatch Queue**: Auto-sorted by dynamic risk score (0–100)
@@ -150,19 +196,74 @@ graph TD
 - **Simulate Crisis**: Demo button injects severe events into Ward 12 for live judge demonstration
 - **Predictive Risk Forecasting**: ML-powered 3-day risk prediction using weather forecast data
 
-### 4. Real-Time WebSocket Sync
+### 4. Neumorphic Citizen Portal
+- **Modern Neumorphic UI**: Soft shadows, glassmorphism panels, premium dark theme
+- **Sidebar Navigation**: Dedicated pages for Dashboard, Wards, Alerts, and Settings
+- **Live Statistics Bar**: Real-time counters for total bins, active alerts, and rain status
+- **Interactive Map**: Leaflet.js with color-coded dustbin markers and clustered road hazard routes
+
+### 5. Real-Time WebSocket Sync
 - Single WebSocket channel broadcasts identical atomic state to all connected portals
 - Auto-reconnect with exponential backoff
 - Both Citizens' and Admin maps update simultaneously within milliseconds
 
-### 5. Security & Auth
+### 6. Security & Auth
 - Admin endpoints protected by `Bearer` token auth (strict 401 on failure)
 - In-memory O(1) dedup prevents duplicate reports within 5-minute windows
 - Dustbin ID validation via strict regex against the MCD registry
 
 ---
 
-## 🔌 API Reference
+## Risk Scoring Algorithm
+
+### Waste Risk Score (Per Ward)
+
+| Factor | Weight | Normalization |
+|--------|--------|--------------|
+| Report Frequency (2hr window) | 35% | 8+ reports = maximum |
+| Overflow Severity (1–5) | 30% | Level 5 = overflowing |
+| Collection Delay (hours) | 20% | 12+ hours = maximum |
+| Rainfall (mm/hr) | 15% | 50mm/hr = max (capped) |
+
+### Road Risk Score (Per Ward)
+
+| Factor | Weight | Normalization |
+|--------|--------|--------------|
+| Report Density (6hr window) | 60% | 6+ reports = maximum |
+| Issue Severity (1–5) | 25% | Severity 5 = critical |
+| Rainfall (mm/hr) | 15% | 50mm/hr = max (capped) |
+
+### State Bands
+
+| Score | Label | Color |
+|-------|-------|-------|
+| 0–30 | Normal | 🟢 Green |
+| 31–55 | Elevated | 🟡 Amber |
+| 56–75 | Warning | 🟠 Orange |
+| 76–100 | Critical | 🔴 Red |
+
+A **hysteresis buffer of 10 points** prevents oscillation between states at boundary values.
+
+---
+
+## Dustbin State Machine
+
+Each dustbin follows a finite state machine:
+
+```
+Clear ──[1+ reports]──> Reported ──[3+ reports OR overflow ≥ 4]──> Escalated
+                                                                       │
+                                                          [5+ reports OR
+                                                           rain ≥ 10mm/hr]
+                                                                       ▼
+                                                                   Critical
+
+            Any State ──[Van Collection]──> Cleared ──[next window]──> Clear
+```
+
+---
+
+## API Reference
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
@@ -183,7 +284,7 @@ graph TD
 
 ---
 
-## 🔄 Data Flow (Event Lifecycle)
+## Data Flow (Event Lifecycle)
 
 ```mermaid
 sequenceDiagram
@@ -200,7 +301,7 @@ sequenceDiagram
     F-->>C: Confirm Detection
     C->>F: Confirm Report
     F->>P: Append Waste Event (JSON)
-    W-->>P: Live Rainfall Data
+    W-->>P: Live Rainfall Data (10min)
     P->>P: Risk Score + Weather Multiplier + State Machine
     P-->>A: WebSocket: Updated Priority Queue
     P-->>C: WebSocket: Updated Map State
@@ -212,7 +313,7 @@ sequenceDiagram
 
 ---
 
-## 🛠️ How to Run Locally
+## How to Run Locally
 
 ### Requirements
 - Python 3.10+ (Ubuntu WSL strongly recommended)
@@ -247,26 +348,27 @@ bash start.sh
 
 ---
 
-## 🚨 Demo Mode (For Judges)
+## Demo Mode (For Judges)
 
 The Admin Command Room includes a built-in **"Simulate Crisis"** button. Pressing it injects 6 severe waste reports and a critical waterlogging road issue into Ward 12 (Shahdara North), triggering the full escalation matrix in real-time.
 
 **Watch the system:**
 1. Auto-triage the crisis into the Priority Queue
-2. Escalate dustbin states from `Reported` → `Critical`
+2. Escalate dustbin states from `Reported` → `Critical` in seconds
 3. Render OSRM-routed road hazard polylines on the map
 4. Apply weather multiplication if it's raining
+5. Real-time WebSocket updates on both portals simultaneously
 
 ---
 
-## ☁️ Deployment Architecture
+## Deployment Architecture
 
 ```mermaid
 graph LR
     classDef cloud fill:#1E293B,stroke:#3B82F6,stroke-width:2px,color:#fff
     classDef ext fill:#0F172A,stroke:#10B981,stroke-width:2px,color:#fff
 
-    user["🌐 Citizens & Admins"] --> render
+    user["Citizens & Admins"] --> render
 
     subgraph "Render.com (Docker Container)"
         render["Uvicorn ASGI Server"]:::cloud
@@ -290,7 +392,7 @@ graph LR
 
 ---
 
-## 📈 Scalability Path
+## Scalability Path
 
 | Scale | Users | Architecture |
 |-------|-------|-------------|
@@ -298,9 +400,13 @@ graph LR
 | **Regional** (10 cities) | 100K | Horizontal Pathway workers + Redis pub/sub |
 | **National** (100+ cities) | 1M+ | Kubernetes cluster, Kafka event bus, per-city Pathway shards |
 
+**The brain — the risk engine — remains exactly the same.** We built a modular architecture. To scale, we swap the Input/Output layers:
+- **Input**: JSON Files → **Apache Kafka** (high-throughput ingestion)
+- **Output**: JSONL → **PostgreSQL/TimescaleDB** (historical analytics)
+
 ---
 
-## 🔐 Security
+## Security
 
 | Layer | Mechanism |
 |-------|-----------|
@@ -312,45 +418,47 @@ graph LR
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 ├── api/
-│   └── server.py           # FastAPI — transport only, zero computation
+│   └── server.py              # FastAPI — transport only, zero computation
 ├── config/
-│   ├── dustbins.py          # 72 MCD collection points (real govt data)
-│   ├── wards.py             # 12 Delhi ward definitions
-│   └── settings.py          # Thresholds, windows, scoring weights
+│   ├── dustbins.py            # 72 MCD collection points (real govt data)
+│   ├── wards.py               # 12 Delhi ward definitions
+│   └── settings.py            # Thresholds, windows, scoring weights
 ├── frontend/
-│   ├── citizen.html/js/css  # Citizens' Portal (SPA)
-│   └── admin.html/js/css    # Admin Command Center
-├── pathway_engine.py        # Pathway streaming engine (the brain)
-├── start.sh                 # One-shot startup script
-├── requirements.txt         # Python dependencies
-├── Dockerfile               # Production container
-├── render.yaml              # Render.com deployment config
+│   ├── citizen.html/js/css    # Citizens' Portal (Neumorphic SPA)
+│   └── admin.html/js/css      # Admin Command Center
+├── llm_layer/                 # Gemini AI integration module
+│   └── guidelines/            # AI risk assessment guidelines
+├── pathway_engine.py          # Pathway streaming engine (the brain)
+├── start.sh                   # One-shot startup script
+├── requirements.txt           # Python dependencies
+├── Dockerfile                 # Production container
+├── render.yaml                # Render.com deployment config
+├── generate_docs_pdf.py       # Project documentation PDF generator
 └── .github/workflows/
-    └── ci.yml               # CI/CD pipeline (lint + tests)
+    └── ci.yml                 # CI/CD pipeline (lint + tests)
 ```
 
 ---
 
-## 🇮🇳 Why This Matters for India
+## Research Foundation
 
-India loses **over 3,500 lives annually** to road accidents caused by potholes ([MoRTH](https://morth.nic.in/)). The devastating floods in Punjab and Delhi exposed how open waste and blocked drainage amplify natural disasters into public health emergencies.
+Our approach is informed by recent academic research in smart city waste management:
 
-**InfraWatch Nexus directly addresses these crises:**
-
-1. **Eliminating Reporting Friction:** A single photo replaces a 10-field government form. AI does the data entry. Citizens report in under 5 seconds.
-2. **Weather-Aware Prioritization:** A pothole during monsoon season is mathematically pushed to the top of the dispatch queue before it becomes fatal.
-3. **Optimizing Municipal Resources:** By clustering and deduplicating reports, city fleets target verified hotspots instead of patrolling blindly — reducing fuel waste and emissions.
-4. **Restoring Civic Trust:** Real-time map transparency proves to citizens that their government is responsive.
-
-> *"The goal is not to build another complaint box. The goal is to build a civic nervous system that feels danger before tragedy strikes."*
+| Paper | Key Insight We Used |
+|-------|-------------------|
+| Proenca & Simoes (2020) — *"Deep Learning-Based Waste Detection"* | Two-stage detection outperforms single-stage for waste classification |
+| Mishra et al. (2025) — *"iWatchRoad"* ([arXiv:2508.10945](https://arxiv.org/abs/2508.10945)) | Haversine spatial deduplication + auto-repair detection for self-healing maps |
+| MDPI Applied Sciences (2024) — *"IoT Route Optimization for MSW"* | TOPSIS multi-criteria optimization achieving 14% route efficiency gain |
+| IndiaAI / NITI Aayog (2024) — *"Ward-wise AI Reports for MSW"* | Ward-level analytics with monsoon-aware overflow prediction |
+| MCD Official Document — RO No. 20/DPI/MCD/2024-25 | 106 designated C&D waste collection sites across all Delhi zones |
 
 ---
 
-## 🧑‍💻 Tech Stack
+## Tech Stack
 
 | Technology | Purpose |
 |------------|---------|
@@ -368,6 +476,35 @@ India loses **over 3,500 lives annually** to road accidents caused by potholes (
 
 ---
 
-## 📜 License
+## Why This Matters for India
 
-Built with ❤️ for the **Hack For Green Bharat Hackathon 2026**.
+India loses **over 3,500 lives annually** to road accidents caused by potholes ([MoRTH](https://morth.nic.in/)). The devastating floods in Punjab and Delhi exposed how open waste and blocked drainage amplify natural disasters into public health emergencies.
+
+**InfraWatch Nexus directly addresses these crises:**
+
+1. **Eliminating Reporting Friction:** A single photo replaces a 10-field government form. AI does the data entry. Citizens report in under 5 seconds.
+2. **Weather-Aware Prioritization:** A pothole during monsoon season is mathematically pushed to the top of the dispatch queue before it becomes fatal.
+3. **Optimizing Municipal Resources:** By clustering and deduplicating reports, city fleets target verified hotspots instead of patrolling blindly — reducing fuel waste and emissions.
+4. **Restoring Civic Trust:** Real-time map transparency proves to citizens that their government is responsive.
+
+> *"We didn't just build a reporting app. We built an operational brain that listens to the city, understands the context, and directs resources where they matter most."*
+
+---
+
+## Future Roadmap
+
+| Priority | Feature | Impact |
+|----------|---------|--------|
+| P0 | Negative sample awareness in AI prompts | Reduce false positives by 40% |
+| P1 | Spatial deduplication (Haversine distance) | Clean map, no cluster noise |
+| P2 | Auto-resolution of stale road issues | Self-healing map data |
+| P3 | 7-category waste classification | Detailed analytics per ward |
+| P4 | Waste composition breakdown per ward | Policy-actionable insights |
+| P5 | Multi-city deployment (Kubernetes) | National scale platform |
+| P6 | Mobile app (Android APK) | Increased citizen reach |
+
+---
+
+## License
+
+Built with dedication for the **Hack For Green Bharat Hackathon 2026**.
