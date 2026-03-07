@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Header, File, UploadFile, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
@@ -57,13 +57,160 @@ WEATHER_DIR      = os.path.join(PROJECT_ROOT, "data", "reports", "weather")
 PW_OUTPUT_DIR    = os.path.join(PROJECT_ROOT, "data", "output")
 FRONTEND_DIR     = os.path.join(PROJECT_ROOT, "frontend")
 
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "INFRAWATCH_ADMIN_2026")
-GEMINI_KEY  = os.getenv("GEMINI_API_KEY", "")
+ADMIN_TOKEN          = os.getenv("ADMIN_TOKEN", "INFRAWATCH_ADMIN_2026")
+GEMINI_KEY           = os.getenv("GEMINI_API_KEY", "")
+ELEVENLABS_KEY       = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_VOICE_ID  = os.getenv("ELEVENLABS_VOICE_ID", "56k72tYpS6hbRADdszYg")
+VULTR_ACCESS_KEY     = os.getenv("VULTR_ACCESS_KEY", "")
+VULTR_SECRET_KEY     = os.getenv("VULTR_SECRET_KEY", "")
+VULTR_BUCKET         = os.getenv("VULTR_BUCKET", "infrawatch-evidence")
+VULTR_ENDPOINT       = os.getenv("VULTR_ENDPOINT", "https://ewr1.vultrobjects.com")
+AUTH0_DOMAIN         = os.getenv("AUTH0_DOMAIN", "")
+AUTH0_CLIENT_ID      = os.getenv("AUTH0_CLIENT_ID", "")
+AUTH0_AUDIENCE       = os.getenv("AUTH0_AUDIENCE", "https://infrawatch-nexus-api")
+AUTH0_ALGORITHMS     = ["RS256"]
 
 DUSTBIN_PATTERN = re.compile(r"MCD-W\d{2}-\d{3}")
 
 for d in [WASTE_REPORT_DIR, ROAD_REPORT_DIR, VAN_LOG_DIR, WEATHER_DIR, PW_OUTPUT_DIR]:
     os.makedirs(d, exist_ok=True)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AUTH0 JWT VALIDATION
+# ═══════════════════════════════════════════════════════════════════════════
+_jwks_cache: Optional[dict] = None
+_jwks_fetched_at: float = 0.0
+
+
+def _get_jwks() -> dict:
+    """Fetch Auth0 JWKS (public keys). Cached for 10 minutes."""
+    global _jwks_cache, _jwks_fetched_at
+    import requests as _req
+    if _jwks_cache and (time.time() - _jwks_fetched_at) < 600:
+        return _jwks_cache
+    if not AUTH0_DOMAIN:
+        return {}
+    try:
+        resp = _req.get(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json", timeout=8)
+        _jwks_cache = resp.json()
+        _jwks_fetched_at = time.time()
+        return _jwks_cache
+    except Exception as e:
+        print(f"[Auth0] JWKS fetch error: {e}")
+        return _jwks_cache or {}
+
+
+def verify_auth0_token(token: str) -> Optional[dict]:
+    """Validate an Auth0 JWT. Returns decoded payload or None if invalid."""
+    if not AUTH0_DOMAIN or not token:
+        return None
+    try:
+        from jose import jwt as jose_jwt, JWTError
+        jwks = _get_jwks()
+        if not jwks:
+            return None
+        unverified_header = jose_jwt.get_unverified_header(token)
+        rsa_key = {}
+        for key in jwks.get("keys", []):
+            if key["kid"] == unverified_header.get("kid"):
+                rsa_key = {
+                    "kty": key["kty"],
+                    "kid": key["kid"],
+                    "use": key["use"],
+                    "n":   key["n"],
+                    "e":   key["e"],
+                }
+                break
+        if not rsa_key:
+            return None
+        payload = jose_jwt.decode(
+            token, rsa_key,
+            algorithms=AUTH0_ALGORITHMS,
+            audience=AUTH0_AUDIENCE,
+            issuer=f"https://{AUTH0_DOMAIN}/",
+        )
+        return payload
+    except Exception as e:
+        print(f"[Auth0] Token invalid: {e}")
+        return None
+
+
+def _extract_user_id(authorization: Optional[str]) -> Optional[str]:
+    """Extract user_id (sub claim) from Bearer token, or None if missing/invalid."""
+    if not authorization:
+        return None
+    token = authorization.replace("Bearer ", "").strip()
+    if not token:
+        return None
+    payload = verify_auth0_token(token)
+    return payload.get("sub") if payload else None
+
+# ═══════════════════════════════════════════════════════════════════════════
+# USER REPORTS INDEX  — rebuilt from flat files; updated on each new report
+# ═══════════════════════════════════════════════════════════════════════════
+# user_reports[user_id] = [ {event_id, dustbin_id, overflow_level, timestamp, status}, ... ]
+user_reports: dict = {}
+
+
+def _add_to_user_reports(user_id: str, event: dict):
+    """Append an event to in-memory user_reports index."""
+    user_reports.setdefault(user_id, []).append({
+        "event_id":      event.get("event_id", ""),
+        "dustbin_id":    event.get("dustbin_id", ""),
+        "overflow_level": event.get("overflow_level", 0),
+        "timestamp":     event.get("timestamp", ""),
+        "status":        "Pending",
+    })
+
+
+# ── Vultr Object Storage ──────────────────────────────────────────────────
+def _upload_to_vultr(image_bytes: bytes, content_type: str, filename: str) -> Optional[str]:
+    """Upload evidence photo to Vultr Object Storage. Returns public URL or None."""
+    if not VULTR_ACCESS_KEY or not VULTR_SECRET_KEY:
+        return None
+    try:
+        import boto3
+        from botocore.client import Config
+        s3 = boto3.client(
+            's3',
+            endpoint_url=VULTR_ENDPOINT,
+            aws_access_key_id=VULTR_ACCESS_KEY,
+            aws_secret_access_key=VULTR_SECRET_KEY,
+            config=Config(signature_version='s3v4'),
+        )
+        s3.put_object(
+            Bucket=VULTR_BUCKET,
+            Key=f"evidence/{filename}",
+            Body=image_bytes,
+            ContentType=content_type,
+            ACL='public-read',
+        )
+        url = f"{VULTR_ENDPOINT}/{VULTR_BUCKET}/evidence/{filename}"
+        print(f"[Vultr] Uploaded: {url}")
+        return url
+    except Exception as e:
+        print(f"[Vultr] Upload failed: {e}")
+        return None
+
+
+def _rebuild_user_reports():
+    """On startup, scan waste report files and rebuild user_reports index."""
+    try:
+        for fname in sorted(os.listdir(WASTE_REPORT_DIR)):
+            fpath = os.path.join(WASTE_REPORT_DIR, fname)
+            try:
+                with open(fpath, "r") as f:
+                    events = json.load(f)
+                if isinstance(events, list):
+                    for e in events:
+                        uid = e.get("user_id")
+                        if uid:
+                            _add_to_user_reports(uid, e)
+            except Exception:
+                continue
+    except FileNotFoundError:
+        pass
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # GLOBAL STATE — cached from Pathway atomic output (NOT computed here)
@@ -146,6 +293,7 @@ def _rebuild_dedup_cache():
 class DustbinConfirmReport(BaseModel):
     dustbin_id: str
     overflow_level: int  # 1–5
+    photo_url: Optional[str] = None  # Vultr Object Storage URL from detect step
 
 class RoadIssueReport(BaseModel):
     from_dustbin: str
@@ -158,6 +306,13 @@ class VanCollectionReport(BaseModel):
 
 class RoadClearReport(BaseModel):
     event_id: str
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+
+class TTSRequest(BaseModel):
+    text: str
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -175,10 +330,11 @@ def _write_event(directory: str, prefix: str, data: dict) -> str:
 
 
 def _check_admin_token(authorization: Optional[str]) -> bool:
-    """Strict admin token check."""
+    """Strict admin token check. Allows demotoken123 for demo purposes."""
     if not authorization:
         return False
-    return authorization == f"Bearer {ADMIN_TOKEN}"
+    token = authorization.replace("Bearer ", "").strip()
+    return token in [ADMIN_TOKEN, "demotoken123"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -186,9 +342,10 @@ def _check_admin_token(authorization: Optional[str]) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/report/dustbin/detect")
-async def detect_dustbin_from_photo(file: UploadFile = File(...)):
+async def detect_dustbin_from_photo(file: UploadFile = File(...), authorization: Optional[str] = Header(None)):
     """
     Step 1 of citizen flow: Upload photo → Gemini Vision → extract dustbin ID.
+    Also uploads evidence photo to Vultr Object Storage (if configured).
     Returns detected ID for user confirmation. Does NOT create event.
     """
     if not GEMINI_KEY:
@@ -203,10 +360,10 @@ async def detect_dustbin_from_photo(file: UploadFile = File(...)):
     try:
         import requests
         import base64
-        
+
         image_bytes = await file.read()
         img_data = base64.b64encode(image_bytes).decode('utf-8')
-        
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
         headers = {'Content-Type': 'application/json'}
         payload = {
@@ -233,11 +390,17 @@ async def detect_dustbin_from_photo(file: UploadFile = File(...)):
             candidate = match.group(0)
             if validate_dustbin_id(candidate):
                 dustbin = get_dustbin(candidate)
+                # Upload evidence photo to Vultr Object Storage
+                user_id = _extract_user_id(authorization)
+                uid_tag = user_id.split('|')[-1][:8] if user_id else "anon"
+                photo_filename = f"{candidate}_{uuid.uuid4().hex[:8]}_{uid_tag}.jpg"
+                photo_url = _upload_to_vultr(image_bytes, file.content_type or "image/jpeg", photo_filename)
                 return JSONResponse(content={
                     "detected_id": candidate,
                     "fallback": False,
                     "street": dustbin["street"],
                     "ward_id": dustbin["ward_id"],
+                    "photo_url": photo_url,
                     "message": f"Detected: {candidate} — {dustbin['street']}. Please confirm.",
                 })
 
@@ -261,7 +424,7 @@ async def detect_dustbin_from_photo(file: UploadFile = File(...)):
 
 
 @app.post("/api/report/dustbin/confirm")
-async def confirm_dustbin_report(report: DustbinConfirmReport):
+async def confirm_dustbin_report(report: DustbinConfirmReport, authorization: Optional[str] = Header(None)):
     """
     Step 2 of citizen flow: User confirmed dustbin ID → write waste event.
     Validates against registry. Dedup check.
@@ -276,8 +439,25 @@ async def confirm_dustbin_report(report: DustbinConfirmReport):
     # Validate overflow level
     overflow = min(5, max(1, report.overflow_level))
 
+    # Extract user identity early (needed for both merged and accepted paths)
+    dustbin = get_dustbin(report.dustbin_id)
+    user_id = _extract_user_id(authorization)
+    print(f"[Report] dustbin={report.dustbin_id} auth_header={bool(authorization)} user_id={user_id}")
+
     # Dedup check
     if _is_duplicate(report.dustbin_id, overflow):
+        # Still credit the user even if the event is merged
+        if user_id:
+            merged_event = {
+                "event_id": f"WR-merged-{uuid.uuid4().hex[:6]}",
+                "dustbin_id": report.dustbin_id,
+                "ward_id": dustbin["ward_id"],
+                "overflow_level": overflow,
+                "timestamp": datetime.now().isoformat(),
+                "source": "citizen",
+                "user_id": user_id,
+            }
+            _add_to_user_reports(user_id, merged_event)
         return JSONResponse(content={
             "status": "merged",
             "dustbin_id": report.dustbin_id,
@@ -285,7 +465,6 @@ async def confirm_dustbin_report(report: DustbinConfirmReport):
         })
 
     # Build strict event
-    dustbin = get_dustbin(report.dustbin_id)
     event = {
         "event_id": f"WR-{uuid.uuid4().hex[:8]}",
         "dustbin_id": report.dustbin_id,
@@ -294,14 +473,24 @@ async def confirm_dustbin_report(report: DustbinConfirmReport):
         "timestamp": datetime.now().isoformat(),
         "source": "citizen",
     }
+    if user_id:
+        event["user_id"] = user_id
+    if report.photo_url:
+        event["photo_url"] = report.photo_url
 
     filename = _write_event(WASTE_REPORT_DIR, "waste", event)
+
+    # Update in-memory user index
+    if user_id:
+        _add_to_user_reports(user_id, event)
+
     return JSONResponse(content={
         "status": "accepted",
         "event_id": event["event_id"],
         "dustbin_id": report.dustbin_id,
         "street": dustbin["street"],
         "file": filename,
+        "photo_url": report.photo_url,
         "message": f"Report for {report.dustbin_id} ({dustbin['street']}) accepted.",
     })
 
@@ -379,15 +568,25 @@ async def simulate_crisis(authorization: Optional[str] = Header(None)):
     if not _check_admin_token(authorization):
         return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
     
-    # Target Ward 12 specifically to create a localized heat cluster
+    # Target Ward W12 specifically to create a localized heat cluster
+    # Find active dustbins in W12
+    w12_bins = [k for k, v in DUSTBINS.items() if v["ward_id"] == "W12"]
+    if len(w12_bins) < 2:
+        # Fallback to whatever exists
+        w12_bins = list(DUSTBINS.keys())[:2]
+        
+    target_bin_1 = w12_bins[0]
+    target_bin_2 = w12_bins[1]
+    target_ward = DUSTBINS[target_bin_1]["ward_id"]
+    
     demo_events = []
     
     # Generate 6 rapid reports for dustbin 1 (Triggers 'Escalated' or 'Critical')
     for _ in range(6):
         event = {
             "event_id": f"WR-DEMO-{uuid.uuid4().hex[:6]}",
-            "dustbin_id": "MCD-W12-001",
-            "ward_id": "W12",
+            "dustbin_id": target_bin_1,
+            "ward_id": target_ward,
             "overflow_level": 5,
             "timestamp": datetime.now().isoformat(),
             "source": "demo_bot"
@@ -398,9 +597,9 @@ async def simulate_crisis(authorization: Optional[str] = Header(None)):
     # Generate a massive road issue nearby
     road_event = {
         "event_id": f"RI-DEMO-{uuid.uuid4().hex[:6]}",
-        "from_dustbin": "MCD-W12-001",
-        "to_dustbin": "MCD-W12-002",
-        "ward_id": "W12",
+        "from_dustbin": target_bin_1,
+        "to_dustbin": target_bin_2,
+        "ward_id": target_ward,
         "issue_type": "waterlogging",
         "severity": 5,
         "timestamp": datetime.now().isoformat(),
@@ -410,7 +609,7 @@ async def simulate_crisis(authorization: Optional[str] = Header(None)):
     
     return JSONResponse(content={
         "status": "success",
-        "message": "🚨 CRISIS SIMULATION INJECTED. Watch the Admin Queue automatically prioritize Ward 12."
+        "message": f"🚨 CRISIS SIMULATION INJECTED at {target_bin_1} ({target_ward})."
     })
 
 
@@ -632,6 +831,223 @@ async def get_weather():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# AI CITIZEN CHAT — Gemini + ElevenLabs Hindi TTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/auth0-config")
+async def get_auth0_config():
+    """Return Auth0 public config for frontend SDK initialization."""
+    return JSONResponse(content={
+        "domain":   AUTH0_DOMAIN,
+        "clientId": os.getenv("AUTH0_CLIENT_ID", ""),
+        "audience": AUTH0_AUDIENCE,
+    })
+
+
+@app.get("/api/debug-auth")
+async def debug_auth(authorization: Optional[str] = Header(None)):
+    """Debug: show what user_id the server sees from the Bearer token."""
+    user_id = _extract_user_id(authorization)
+    has_token = bool(authorization and authorization.startswith("Bearer "))
+    return JSONResponse(content={
+        "has_token": has_token,
+        "user_id": user_id,
+        "reports_count": len(user_reports.get(user_id, [])) if user_id else 0,
+        "all_users_in_index": list(user_reports.keys()),
+    })
+
+
+@app.get("/api/my-reports")
+async def get_my_reports(authorization: Optional[str] = Header(None)):
+    """Return this user's complaint history (requires Auth0 Bearer token)."""
+    user_id = _extract_user_id(authorization)
+    if not user_id:
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+    reports = user_reports.get(user_id, [])
+    return JSONResponse(content={"user_id": user_id, "reports": reports, "count": len(reports)})
+
+
+@app.post("/api/chat")
+async def ai_chat(payload: ChatRequest, authorization: Optional[str] = Header(None)):
+    """Citizen AI chatbot: Gemini 2.5 Flash with live civic data context. Responds in Hindi."""
+    user_id = _extract_user_id(authorization)
+    if not GEMINI_KEY:
+        return JSONResponse(content={"reply": "AI सहायक अभी उपलब्ध नहीं है। कृपया बाद में प्रयास करें।"})
+
+    import requests as req
+
+    # ── Build user-specific context if logged in ──────────────────────────
+    my_reports_context = ""
+    if user_id:
+        my_reps = user_reports.get(user_id, [])
+        if my_reps:
+            rep_lines = []
+            for r in my_reps[-5:]:  # last 5 reports
+                ts = r.get("timestamp", "")[:16].replace("T", " ")
+                did = r.get("dustbin_id", "?")
+                street = DUSTBINS.get(did, {}).get("street", did)
+                ovf = r.get("overflow_level", "?")
+                eid = r.get("event_id", "?")
+                rep_lines.append(f"  - {eid}: {street} (ओवरफ्लो {ovf}/5) — {ts}")
+            my_reports_context = (
+                f"\nइस नागरिक की अपनी शिकायतें ({len(my_reps)} कुल, अंतिम 5):\n"
+                + "\n".join(rep_lines)
+                + "\n"
+            )
+        else:
+            my_reports_context = "\nइस नागरिक ने अभी तक कोई शिकायत दर्ज नहीं की है।\n"
+
+    # ── Build live data context from Pathway cached state ──────────────────
+    ward_risks      = cached_state.get("ward_risks", [])
+    dustbin_states  = cached_state.get("dustbin_states", [])
+    road_issues     = cached_state.get("road_issues", [])
+    priority_queue  = cached_state.get("priority_queue", [])
+    rainfall        = cached_state.get("rainfall_mm_hr", 0.0)
+    waste_index     = cached_state.get("city_waste_index", 0.0)
+
+    critical_bins = [d for d in dustbin_states if d.get("state") in ("Critical", "Escalated")]
+    top_wards     = sorted(ward_risks, key=lambda w: w.get("risk_score", 0), reverse=True)[:5]
+    active_roads  = [r for r in road_issues if r.get("status") != "cleared"][:5]
+
+    def ward_name(wid):
+        return WARDS.get(wid, {}).get("name", wid)
+
+    bins_summary = "\n".join(
+        f"  - {b.get('dustbin_id','?')} ({b.get('state','')}) — {DUSTBINS.get(b.get('dustbin_id',''), {}).get('street', 'Ward '+b.get('ward_id',''))}"  # noqa: E501
+        for b in critical_bins[:6]
+    ) or "  कोई क्रिटिकल डस्टबिन नहीं"
+
+    wards_summary = ", ".join(
+        f"{ward_name(w.get('ward_id',''))} (जोखिम: {w.get('risk_score', 0):.0%})"
+        for w in top_wards[:4]
+    ) or "सभी वार्ड सामान्य"
+
+    roads_summary = "\n".join(
+        f"  - {r.get('issue_type','?')} गंभीरता {r.get('severity',0)}/5, {ward_name(r.get('ward_id',''))}"
+        for r in active_roads[:4]
+    ) or "  कोई सक्रिय सड़क समस्या नहीं"
+
+    live_context = (
+        f"LIVE DATA ({datetime.now().strftime('%d %b %Y, %H:%M IST')}):\n"
+        f"- शहर का कचरा सूचकांक: {waste_index:.0%}\n"
+        f"- वर्तमान वर्षा: {rainfall:.1f} mm/hr\n"
+        f"- क्रिटिकल/एस्केलेटेड डस्टबिन ({len(critical_bins)}): \n{bins_summary}\n"
+        f"- शीर्ष जोखिम वार्ड: {wards_summary}\n"
+        f"- सक्रिय सड़क समस्याएं ({len(active_roads)}):\n{roads_summary}\n"
+        f"- प्राथमिकता कतार में: {len(priority_queue)} कार्य लंबित"
+    )
+
+    # ── Conversation history handling ─────────────────────────────────────
+    history_text = ""
+    for msg in payload.history[-6:]:
+        speaker = "नागरिक" if msg.get("role") == "user" else "NEXUS"
+        history_text += f"\n{speaker}: {msg.get('text', '')}"
+
+    # ── System prompt ──────────────────────────────────────────────────────
+    logged_in_note = "(यह नागरिक लॉग इन है — आप उनकी व्यक्तिगत शिकायतों का उत्तर दे सकते हैं)" if user_id else "(यह नागरिक लॉग इन नहीं है — केवल सामान्य जानकारी दें)"
+    full_prompt = (
+        "आप NEXUS हैं — दिल्ली नगर निगम के स्मार्ट अपशिष्ट प्रबंधन सिस्टम (NUWMS) के AI नागरिक सहायक।\n"
+        "आप नागरिकों को कचरा संग्रह की स्थिति, डस्टबिन की स्थिति, सड़क की समस्याओं और वार्ड जोखिम के बारे में \n"
+        "सटीक, उपयोगी जानकारी देते हैं। हमेशा हिंदी में उत्तर दें। संक्षिप्त रहें (2-4 वाक्य)।\n"
+        f"{logged_in_note}\n"
+        "तकनीकी IDs (जैसे MCD-W06-003) को आम भाषा में समझाएं।\n"
+        "'मेरी शिकायत' या 'मेरी रिपोर्ट' जैसे प्रश्नों का उत्तर नीचे दी गई व्यक्तिगत शिकायत सूची से दें।\n\n"
+        f"{live_context}"
+        f"{my_reports_context}\n"
+        f"पिछली बातचीत:{history_text}\n\n"
+        f"नागरिक का प्रश्न: {payload.message}"
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_KEY}"
+    body = {"contents": [{"parts": [{"text": full_prompt}]}]}
+
+    try:
+        resp = req.post(url, headers={"Content-Type": "application/json"}, json=body, timeout=20)
+        resp.raise_for_status()
+        reply = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return JSONResponse(content={"reply": reply})
+    except Exception as e:
+        print(f"[AI Chat] Gemini error: {e}")
+        return JSONResponse(content={"reply": "माफ़ करें, AI सेवा में अस्थायी समस्या है। कृपया फिर से कोशिश करें।"})
+
+
+@app.post("/api/tts")
+async def text_to_speech(payload: TTSRequest):
+    """ElevenLabs Hindi TTS proxy. Returns audio/mpeg stream."""
+    from fastapi.responses import Response as FastAPIResponse
+
+    # Sanitise input
+    text = payload.text.strip()[:800]   # cap at 800 chars to avoid cost spikes
+    if not text:
+        return JSONResponse(content={"error": "Empty text"}, status_code=400)
+
+    if not ELEVENLABS_KEY:
+        return JSONResponse(content={"error": "TTS not configured"}, status_code=503)
+
+    import requests as req
+    try:
+        resp = req.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}",
+            headers={
+                "xi-api-key": ELEVENLABS_KEY,
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": text,
+                "model_id": "eleven_multilingual_v2",
+                "voice_settings": {"stability": 0.55, "similarity_boost": 0.75},
+            },
+            timeout=25,
+        )
+        if resp.status_code == 200:
+            return FastAPIResponse(content=resp.content, media_type="audio/mpeg")
+        print(f"[TTS] ElevenLabs error {resp.status_code}: {resp.text[:200]}")
+        return JSONResponse(content={"error": "TTS provider error"}, status_code=502)
+    except Exception as e:
+        print(f"[TTS] Request failed: {e}")
+        return JSONResponse(content={"error": "TTS request failed"}, status_code=500)
+
+
+@app.get("/api/tts-stream")
+async def tts_stream_get(text: str):
+    """Streaming TTS GET — browser starts playing as first audio chunk arrives (low latency)."""
+    from fastapi.responses import StreamingResponse
+    import requests as req
+
+    clean = text.strip()[:600]
+    if not clean or not ELEVENLABS_KEY:
+        return JSONResponse(content={"error": "not configured"}, status_code=503)
+
+    def _gen():
+        try:
+            resp = req.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}/stream",
+                headers={"xi-api-key": ELEVENLABS_KEY, "Content-Type": "application/json"},
+                json={
+                    "text": clean,
+                    "model_id": "eleven_turbo_v2_5",   # ultra-low latency multilingual
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                },
+                stream=True,
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                for chunk in resp.iter_content(chunk_size=4096):
+                    if chunk:
+                        yield chunk
+            else:
+                print(f"[TTS Stream] ElevenLabs {resp.status_code}")
+        except Exception as e:
+            print(f"[TTS Stream] Error: {e}")
+
+    return StreamingResponse(
+        _gen(),
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PATHWAY OUTPUT READER (background thread — reads atomic snapshot)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -691,12 +1107,35 @@ async def websocket_stream(websocket: WebSocket):
 # STATIC FILES & PAGE SERVING
 # ═══════════════════════════════════════════════════════════════════════════
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Return inline SVG favicon — eliminates 404 noise in server logs."""
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">🌱</text></svg>'
+    return Response(content=svg.encode(), media_type="image/svg+xml")
+
+
 @app.get("/")
 async def serve_citizen_portal():
-    """Serve Citizens' Portal."""
+    """Serve Citizens\' Portal."""
     filepath = os.path.join(FRONTEND_DIR, "citizen.html")
     with open(filepath, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
+
+
+@app.get("/report")
+async def serve_qr_report(bin: Optional[str] = None):
+    """
+    QR-code landing page — /report?bin=MCD-DL-1000
+    Serves the citizen portal with a ?bin= param that JS reads to pre-fill the form.
+    """
+    filepath = os.path.join(FRONTEND_DIR, "citizen.html")
+    with open(filepath, "r", encoding="utf-8") as f:
+        html = f.read()
+    # Inject the bin ID as a JS global so citizen.js can pick it up
+    if bin and re.match(r'^MCD-[A-Z]{2}-\d+$', bin):
+        inject = f'<script>window._QR_PREFILL_BIN = "{bin}";</script>'
+        html = html.replace('<script src="/static/citizen.js', inject + '\n    <script src="/static/citizen.js')
+    return HTMLResponse(content=html)
 
 
 @app.get("/admin")
@@ -716,9 +1155,10 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 @app.on_event("startup")
 async def startup():
-    print("═" * 55)
-    print("  InfraWatch Nexus — API Server v3.0 (Transport Only)")
-    print("═" * 55)
+    sep = "=" * 55
+    print(sep)
+    print("  InfraWatch Nexus -- API Server v3.0 (Transport Only)")
+    print(sep)
     print(f"  Citizens Portal : http://localhost:{SERVER_PORT}/")
     print(f"  Admin Portal    : http://localhost:{SERVER_PORT}/admin")
     print(f"  Dustbins loaded : {len(DUSTBINS)}")
@@ -727,6 +1167,11 @@ async def startup():
 
     _rebuild_dedup_cache()
     print(f"  Dedup cache     : {len(_last_report)} recent entries")
+
+    _rebuild_user_reports()
+    total_user_reports = sum(len(v) for v in user_reports.values())
+    print(f"  User reports    : {total_user_reports} across {len(user_reports)} users")
+    print(f"  Auth0           : {'✓ ' + AUTH0_DOMAIN if AUTH0_DOMAIN else '✗ Not configured (anonymous mode)'}")
 
     # Start background cache updater
     t = threading.Thread(target=_cache_updater, daemon=True)

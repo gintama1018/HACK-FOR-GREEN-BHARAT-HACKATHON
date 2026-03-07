@@ -6,24 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InfraWatch Nexus — Citizens' Portal</title>
     <meta name="description" content="Live civic transparency interface for tracking waste and road infrastructure.">
-    <link rel="stylesheet" href="/static/citizen-mobile.css?v=1">
+    <link rel="stylesheet" href="/static/citizen-mobile.css?v=4">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
 </head>
 
-<body>
+<body style="display: block !important; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;">
     <!-- Mobile menu button -->
-    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()">☰</button>
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()" style="display: none !important;">☰</button>
     
     <!-- Sidebar overlay -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()" style="display: none !important;"></div>
 
     <!-- ═══════════════════════════════════════════════════════════
          SIDEBAR NAVIGATION
          ═══════════════════════════════════════════════════════════ -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" style="display: none !important;">
         <div class="sidebar-brand">
             <div class="brand-icon">⚡</div>
             <div class="brand-text">
@@ -63,10 +64,10 @@
     <!-- ═══════════════════════════════════════════════════════════
          MAIN CONTENT AREA
          ═══════════════════════════════════════════════════════════ -->
-    <main class="main-content">
+    <main class="main-content" style="width: 100vw; height: 100vh; padding: 0 !important; margin: 0 !important;">
 
         <!-- ── TOP BAR ─────────────────────────────────────────── -->
-        <header class="topbar">
+        <header class="topbar" style="display: none !important;">
             <div class="topbar-left">
                 <select class="topbar-select" id="filterWard">
                     <option value="">All Wards</option>
@@ -78,159 +79,228 @@
                 </select>
                 <div class="topbar-search">
                     <span class="search-icon">🔍</span>
-                    <input type="text" placeholder="Search Location" id="searchLocation">
+                    <input type="text" placeholder="Search Location" id="topbarSearchLocation">
                 </div>
             </div>
             <div class="topbar-right">
-                <span class="status-badge live" id="wsStatus">● Live</span>
-                <span class="status-badge weather" id="weatherBadge">☀️ 28°C</span>
-                <span class="status-badge rain" id="rainBadge">🌧 0mm</span>
-                <span class="status-badge waste-idx" id="wasteIndex">Waste: 0</span>
+                <!-- Status badges moved to bottom overlay -->
             </div>
         </header>
 
         <!-- ═══════════════════════════════════════════════════════
              SECTION: DASHBOARD (Default View)
              ═══════════════════════════════════════════════════════ -->
-        <section class="content-section active" id="section-dashboard">
-            <div class="dashboard-grid">
-                <!-- Map Area -->
-                <div class="dash-map-area">
-                    <div id="dashMap" class="map-container"></div>
-                </div>
-
-                <!-- Right Panel: Report Form -->
-                <div class="dash-right-panel">
-                    <div class="panel-tabs">
-                        <button class="ptab active" data-ptab="ptab-report" onclick="switchPanelTab(this)">Report
-                            Dustbin</button>
-                        <button class="ptab" data-ptab="ptab-wardstatus" onclick="switchPanelTab(this)">Ward
-                            Status</button>
-                        <button class="ptab" data-ptab="ptab-roadalerts" onclick="switchPanelTab(this)">Road
-                            Alerts</button>
-                    </div>
-
-                    <!-- Report Dustbin Tab -->
-                    <div class="ptab-content active" id="ptab-report">
-                        <h3 class="panel-title">Report Overflowing Dustbin</h3>
-                        <p class="panel-subtitle">Upload a photo to detect MCD ID</p>
-
-                        <div class="upload-zone" id="uploadZone">
-                            <div class="upload-icon">📸</div>
-                            <div class="upload-text">Upload Photo</div>
-                            <div class="upload-hint">Drag & drop or <span class="browse-link">Browse</span></div>
-                            <input type="file" accept="image/*" id="photoInput" hidden>
-                        </div>
-                        <img id="photoPreview" class="photo-preview hidden" alt="Preview">
-
-                        <button class="btn-primary" id="btnDetect">
-                            <span class="btn-icon">🔍</span> Extract Nearest ID
-                        </button>
-
-                        <div class="divider-or">or</div>
-
-                        <button class="btn-secondary" id="btnManual">Select Manually</button>
-
-                        <!-- AI Detection Result -->
-                        <div class="detection-result hidden" id="detectionResult">
-                            <div class="detect-label">🤖 AI Detected</div>
-                            <div class="detect-id" id="detectedId">—</div>
-                            <div class="detect-street" id="detectedStreet">—</div>
-                            <div class="overflow-selector" id="overflowSelector">
-                                <label class="overflow-label">Overflow Level</label>
-                                <div class="overflow-grid" id="overflowGrid">
-                                    <button class="ov-btn" data-val="1">1</button>
-                                    <button class="ov-btn" data-val="2">2</button>
-                                    <button class="ov-btn active" data-val="3">3</button>
-                                    <button class="ov-btn" data-val="4">4</button>
-                                    <button class="ov-btn" data-val="5">5</button>
+        <section class="content-section active" id="section-dashboard" style="width: 100vw; height: 100vh; padding: 0 !important; margin: 0 !important; display: block !important;">
+            <div class="dashboard-grid public-hero-layout" style="display: block !important; width: 100vw; height: 100vh; padding: 0; margin: 0; position: relative;">
+                <div class="dash-map-area public-map-stage" style="width: 100%; height: 100%; position: static;">
+                    <div class="map-overlay-shell" style="position: absolute; top: 20px; left: 20px; right: 20px; z-index: 2000; pointer-events: none; display: flex; align-items: center; justify-content: center;">
+                        <div style="pointer-events: auto; position: relative; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1); border-radius: 40px; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 20px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="background: #10B981; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px;">♻</div>
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="font-weight: 800; font-size: 14px; color: #0F172A; text-transform: uppercase;">NUWMS</span>
+                                    <span style="font-size: 10px; font-weight: 600; color: #64748B;">GOVT OF INDIA</span>
                                 </div>
                             </div>
-                            <button class="btn-confirm" id="btnConfirm">✅ Confirm & Submit</button>
+                            <div style="flex: 1; max-width: 400px; background: rgba(0,0,0,0.04); border-radius: 20px; padding: 10px 16px; display: flex; align-items: center;">
+                                <span style="margin-right: 12px; font-size: 16px; color: #64748B;">⌕</span>
+                                <input type="text" placeholder="Search for a bin, ward, or location..." id="searchLocation" style="border: none; background: transparent; outline: none; width: 100%; font-size: 14px; font-weight: 500; font-family: inherit;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                                <div id="wsStatus" style="font-size: 12px; font-weight: 700; color: #0F5132; background: rgba(16, 185, 129, 0.15); padding: 6px 12px; border-radius: 12px; display: flex; align-items: center; gap: 6px;"><span style="color: #10B981; font-size: 14px;">●</span> Live</div>
+                                <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; color: #1E293B;"><span id="weatherBadge">☀️ 28°C</span><span id="rainBadge">🌧 0mm</span></div>
+                                <div style="width: 1px; height: 24px; background: rgba(0,0,0,0.1);"></div>
+                                <div onclick="toggleThemeMode()" id="themeToggleBtn" style="pointer-events: auto; position: relative; background: rgba(0,0,0,0.05); color: #0F172A; padding: 10px 14px; border-radius: 20px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; z-index: 9999;" title="Toggle Light/Dark Theme">🌙</div>
+                                <div onclick="toggleWardModal()" style="pointer-events: auto; position: relative; background: rgba(249, 115, 22, 0.1); color: #EA580C; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: 0.2s; z-index: 9999;" onmouseover="this.style.background='rgba(249, 115, 22, 0.2)'" onmouseout="this.style.background='rgba(249, 115, 22, 0.1)'"><span style="font-size: 16px;">📊</span> Ward Status</div>
+                                <div onclick="toggleRoadAlertsModal()" style="pointer-events: auto; position: relative; background: rgba(239, 68, 68, 0.1); color: #EF4444; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: 0.2s; z-index: 9999;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'"><span style="font-size: 16px;">🔔</span> Road Alerts</div>
+                                <div id="authBtn" onclick="handleAuthClick()" style="pointer-events: auto; position: relative; background: #0F172A; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: 0.2s; z-index: 9999; display: flex; align-items: center; gap: 8px;">👤 Login</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dashMap" class="map-container hero-map" style="position: absolute; inset: 0; width: 100vw; height: 100vh; z-index: 0;"></div>
+                    
+                    <div style="display:none;"><div id="wasteIndex"></div></div>
+                    
+                    <div class="stats-bar map-floating-summary" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 40px; justify-content: center; right: auto; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15); border-radius: 50px; padding: 16px 48px;">
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Total Bins</span>
+                            <span id="statTotalBins" style="font-size: 28px; font-weight: 800; color: #0F172A; line-height: 1;">72</span>
+                        </div>
+                        <div style="width: 1px; height: 32px; background: rgba(0,0,0,0.1);"></div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Overflow</span>
+                            <span id="statOverflowing" style="font-size: 28px; font-weight: 800; color: #EF4444; line-height: 1;">0</span>
+                        </div>
+                        <div style="width: 1px; height: 32px; background: rgba(0,0,0,0.1);"></div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Efficiency</span>
+                            <span id="statCollection" style="font-size: 28px; font-weight: 800; color: #10B981; line-height: 1;">—</span>
+                        </div>
+                        <div style="width: 1px; height: 32px; background: rgba(0,0,0,0.1);"></div>
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Active Trucks</span>
+                            <span id="statTrucks" style="font-size: 28px; font-weight: 800; color: #2563EB; line-height: 1;">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <aside id="rightComplaintPanel" class="dash-right-panel complaint-shell" style="position: absolute; right: 20px; top: 100px; bottom: 120px; width: 400px; max-width: 90vw; z-index: 1000; overflow-y: auto; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 24px; padding: 24px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15); transition: opacity 0.3s ease, transform 0.3s ease;">
+                    <div class="complaint-header-block" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <p class="complaint-kicker">Public Reporting Interface</p>
+                            <h3 class="panel-title">Citizen Complaint Registration</h3>
+                            <p class="panel-subtitle">Help us keep your city clean. Report waste issues in three guided steps.</p>
+                        </div>
+                        <button onclick="toggleComplaintPanel()" style="background: rgba(0,0,0,0.05); border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; color: #0F172A; transition: 0.2s; padding-bottom: 8px;" title="Minimize Panel" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='rgba(0,0,0,0.05)'">_</button>
+                    </div>
+
+                    <div class="ptab-content active complaint-flow" id="ptab-report" style="margin-top: 16px;">
+                        
+                        <!-- 1. Unified Upload Area -->
+                        <div class="form-section-title" style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #0F172A; text-transform: uppercase;">1. Upload Defect Image</div>
+                        <div class="upload-zone" id="uploadZone" style="border: 2px dashed #CBD5E1; border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; background: #F8FAFC; transition: 0.2s; margin-bottom: 24px;">
+                            <div class="upload-icon" style="font-size: 32px; margin-bottom: 8px;">📸</div>
+                            <div class="upload-text" style="font-weight: 700; color: #0F172A;">Capture or Drop</div>
+                            <div class="upload-hint" style="font-size: 12px; color: #64748B; margin-top: 4px;">Click to upload complaint image of bin/road</div>
+                            <input type="file" accept="image/*" id="photoInput" hidden>
+                        </div>
+                        <img id="photoPreview" class="photo-preview hidden" alt="Preview" style="width: 100%; border-radius: 12px; margin-bottom: 24px;">
+
+                        <!-- 2. Streamlined Manual Area -->
+                        <div class="form-section-title" style="font-weight: 700; font-size: 14px; margin-bottom: 12px; color: #0F172A; text-transform: uppercase;">2. Locate & Submit</div>
+                        <div class="manual-form" id="manualForm" style="display: block; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0;">
+                            
+                            <label class="field-label" for="manualWard" style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">SELECT WARD</label>
+                            <select class="form-select" id="manualWard" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #FFFFFF; margin-bottom: 16px; font-family: inherit;">
+                                <option value="">Choose a ward...</option>
+                                <!-- JS will populate -->
+                            </select>
+                            
+                            <label class="field-label" for="manualDustbin" style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">SELECT DUSTBIN / ASSET</label>
+                            <select class="form-select" id="manualDustbin" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #FFFFFF; margin-bottom: 16px; font-family: inherit;">
+                                <option value="">Choose a registered dustbin...</option>
+                                <!-- JS will populate -->
+                            </select>
+
+                            <label class="field-label" for="manualLandmark" style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">EXTRA DETAILS / LANDMARK</label>
+                            <textarea id="manualLandmark" class="form-input" placeholder="E.g. Address or specific location notes..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #FFFFFF; min-height: 80px; resize: none; font-family: inherit;"></textarea>
+
+                            <button class="btn-confirm" id="btnManualSubmit" style="background-color: #0F172A; color: white; border-radius: 8px; width: 100%; padding: 16px; font-size: 16px; font-weight: 600; margin-top: 24px; border: none; cursor: pointer; transition: 0.2s;" onmouseover="this.style.backgroundColor='#1E293B'" onmouseout="this.style.backgroundColor='#0F172A'">Submit Complaint</button>
                         </div>
 
-                        <!-- Manual Selection -->
-                        <div class="manual-form hidden" id="manualForm">
-                            <select class="form-select" id="manualWard">
-                                <option value="">— Ward —</option>
-                            </select>
-                            <select class="form-select" id="manualDustbin">
-                                <option value="">— Dustbin —</option>
-                            </select>
-                            <div class="overflow-grid" id="manualOverflowGrid">
+                        <!-- Hidden legacy elements to preserve existing JS variables -->
+                        <div style="display: none;">
+                            <button id="btnDetect"></button>
+                            <div id="detectionResult"></div>
+                            <div id="detectedId"></div>
+                            <div id="detectedStreet"></div>
+                            <div id="overflowSelector"></div>
+                            <div id="overflowGrid"></div>
+                            <div id="manualOverflowGrid">
                                 <button class="ov-btn" data-val="1">1</button>
-                                <button class="ov-btn" data-val="2">2</button>
                                 <button class="ov-btn active" data-val="3">3</button>
-                                <button class="ov-btn" data-val="4">4</button>
-                                <button class="ov-btn" data-val="5">5</button>
                             </div>
-                            <button class="btn-confirm" id="btnManualSubmit">Submit Manual Report</button>
-                        </div>
-
-                        <!-- Recent Reports -->
-                        <div class="recent-reports" id="recentReports">
-                            <div class="recent-header">
-                                <span>Recent Reports</span>
-                                <a href="#" onclick="switchSection('reports');return false;">View All</a>
-                            </div>
-                            <div class="recent-list" id="recentList">
-                                <div class="recent-empty">No reports yet</div>
-                            </div>
+                            <button id="btnConfirm"></button>
+                            <button id="btnManual"></button>
                         </div>
                     </div>
 
-                    <!-- Ward Status Tab -->
-                    <div class="ptab-content" id="ptab-wardstatus">
-                        <h3 class="panel-title">Ward Overview</h3>
-                        <div id="wardStatusList" class="ward-list"></div>
+                    <!-- FLOATING WARD STATUS MODAL -->
+                    <div id="wardStatusModal" style="pointer-events: auto; position: relative; display: none; position: fixed; top: 100px; right: 460px; width: 340px; background: rgba(255,255,255,0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 12px 40px rgba(0,0,0,0.15); border-radius: 20px; z-index: 9999; padding: 20px; max-height: 70vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="background: rgba(16, 185, 129, 0.1); color: #10B981; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase;">Live</span>
+                                <span style="font-weight: 800; font-size: 16px; color: #0F172A;">Ward Status</span>
+                            </div>
+                            <button onclick="document.getElementById('wardStatusModal').style.display='none'" style="pointer-events: auto; position: relative; background:none; border:none; font-size:20px; cursor:pointer; color:#64748B;">&times;</button>
+                        </div>
+                        <div id="wardStatusList" class="ward-list compact-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
                     </div>
 
-                    <!-- Road Alerts Tab -->
-                    <div class="ptab-content" id="ptab-roadalerts">
-                        <h3 class="panel-title">Active Road Alerts</h3>
-                        <div id="roadAlertsList" class="alert-list"></div>
+                    <!-- FLOATING ROAD ALERTS MODAL -->
+                    <div id="roadAlertsModal" style="pointer-events: auto; position: relative; display: none; position: fixed; top: 100px; right: 460px; width: 340px; background: rgba(255,255,255,0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 12px 40px rgba(0,0,0,0.15); border-radius: 20px; z-index: 9999; padding: 20px; max-height: 70vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="background: rgba(239, 68, 68, 0.1); color: #EF4444; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase;">Alert</span>
+                                <span style="font-weight: 800; font-size: 16px; color: #0F172A;">Road Alerts</span>
+                            </div>
+                            <button onclick="document.getElementById('roadAlertsModal').style.display='none'" style="pointer-events: auto; position: relative; background:none; border:none; font-size:20px; cursor:pointer; color:#64748B;">&times;</button>
+                        </div>
+                        <div id="roadAlertsList" class="alert-list compact-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
                     </div>
 
-                </div>
-            </div>
-
-            <!-- Stats Bar -->
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <div class="stat-icon">🗑️</div>
-                    <div class="stat-info">
-                        <div class="stat-label">Total Bins</div>
-                        <div class="stat-value" id="statTotalBins">72</div>
-                    </div>
-                </div>
-                <div class="stat-card danger">
-                    <div class="stat-icon">🔴</div>
-                    <div class="stat-info">
-                        <div class="stat-label">Overflowing</div>
-                        <div class="stat-value" id="statOverflowing">0</div>
-                        <div class="stat-sub" id="statHighPriority">● High Priority</div>
-                    </div>
-                </div>
-                <div class="stat-card success">
-                    <div class="stat-icon">♻️</div>
-                    <div class="stat-info">
-                        <div class="stat-label">Collection Rate</div>
-                        <div class="stat-value" id="statCollection">—</div>
-                        <div class="stat-progress">
-                            <div class="stat-bar" id="statBar" style="width: 0%"></div>
+                    <div class="recent-reports" id="recentReports">
+                        <div class="recent-header">
+                            <span>Recent Reports</span>
+                            <span class="recent-pill">Citizen Feed</span>
+                        </div>
+                        <div class="recent-list" id="recentList">
+                            <div class="recent-empty">No reports yet</div>
                         </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">🚛</div>
-                    <div class="stat-info">
-                        <div class="stat-label">Active Trucks</div>
-                        <div class="stat-value" id="statTrucks">0</div>
-                        <div class="stat-sub success-text">On Route</div>
-                    </div>
-                </div>
+                </aside>
+
+                <!-- Floating Chatbot-style button -->
+                <button id="floatingComplaintBtn" onclick="toggleComplaintPanel()" style="display: none; position: absolute; right: 30px; bottom: 30px; width: 64px; height: 64px; border-radius: 50%; background: #0F172A; color: white; border: none; box-shadow: 0 12px 28px rgba(0,0,0,0.3); z-index: 1001; cursor: pointer; font-size: 28px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; padding-bottom: 2px;" title="Open Complaint Registration" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                    ✍️
+                </button>
             </div>
         </section>
+
+        <!-- Toggle panel script -->
+        <script>
+            // State for Theme
+            let isDarkMode = true;
+
+            function toggleThemeMode() {
+                isDarkMode = !isDarkMode;
+                const btn = document.getElementById('themeToggleBtn');
+                btn.innerHTML = isDarkMode ? '🌙' : '☀️';
+                
+                // Existing JS function 'changeMapTheme' exposed from citizen.js
+                if(typeof changeMapTheme === 'function') {
+                    changeMapTheme(isDarkMode ? 'dark' : 'light');
+                }
+            }
+
+            function toggleWardModal() {
+                const modal = document.getElementById('wardStatusModal');
+                const roadModal = document.getElementById('roadAlertsModal');
+                roadModal.style.display = 'none'; // close the other
+                modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+            }
+
+            function toggleRoadAlertsModal() {
+                const modal = document.getElementById('roadAlertsModal');
+                const wardModal = document.getElementById('wardStatusModal');
+                wardModal.style.display = 'none'; // close the other
+                modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+            }
+
+            function toggleComplaintPanel() {
+                var panel = document.getElementById('rightComplaintPanel');
+                var btn = document.getElementById('floatingComplaintBtn');
+                
+                if (panel.style.transform === 'scale(0)' || panel.style.opacity === '0') {
+                    // Open it
+                    panel.style.transform = 'scale(1)';
+                    panel.style.opacity = '1';
+                    panel.style.pointerEvents = 'auto';
+                    btn.style.display = 'none';
+                } else {
+                    // Minimize it
+                    panel.style.transform = 'scale(0)';
+                    panel.style.transformOrigin = 'bottom right';
+                    panel.style.opacity = '0';
+                    panel.style.pointerEvents = 'none';
+                    btn.style.display = 'flex';
+                }
+            }
+            // Initialize button display strictly hidden since panel starts open
+            setTimeout(function() {
+                document.getElementById('floatingComplaintBtn').style.display = 'none';
+            }, 100);
+        </script>
 
         <!-- ═══════════════════════════════════════════════════════
              SECTION: CITY MAP (Full-Screen Map)
@@ -322,7 +392,7 @@
     </main>
 
     <!-- Mobile Bottom Navigation -->
-    <nav class="bottom-nav" id="bottomNav">
+    <nav class="bottom-nav" id="bottomNav" style="display: none !important;">
         <button class="bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
             <span class="bottom-nav-icon">🏠</span>
             <span class="bottom-nav-label">Home</span>
@@ -346,7 +416,470 @@
     </nav>
 
     <div class="toast-container" id="toastContainer"></div>
-    <script src="/static/citizen.js?v=7"></script>
+
+    <!-- QR Pre-fill: runs before citizen.js, opens complaint panel to correct bin -->
+    <script>
+    (function() {
+        const _bin = window._QR_PREFILL_BIN;
+        if (!_bin) return;
+        // Wait until citizen.js has loaded and DOM is ready
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                // 1. Switch to dashboard section (complaint panel lives there)
+                if (typeof switchSection === 'function') switchSection('dashboard');
+
+                // 2. Make sure complaint panel is visible
+                const panel = document.getElementById('rightComplaintPanel');
+                if (panel) {
+                    panel.style.transform  = 'scale(1)';
+                    panel.style.opacity    = '1';
+                    panel.style.pointerEvents = 'auto';
+                }
+
+                // 3. Pre-select the dustbin in the manual dropdown
+                const sel = document.getElementById('manualDustbinSelect');
+                if (sel) {
+                    sel.value = _bin;
+                    sel.dispatchEvent(new Event('change'));
+                }
+
+                // 4. Show a QR toast so citizen knows the bin was detected
+                const toastEl = document.getElementById('toastContainer');
+                if (toastEl) {
+                    const t = document.createElement('div');
+                    t.style.cssText = 'background:#10B981;color:white;padding:12px 18px;border-radius:14px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,0.2);margin-bottom:8px;animation:fadeInUp 0.4s ease;';
+                    t.innerHTML = '\u2705 QR स्कैन सफल — ' + _bin + ' चुना गया';
+                    toastEl.appendChild(t);
+                    setTimeout(() => t.remove(), 4000);
+                }
+
+                // 5. Scroll/focus to overflow selector
+                const ovGrid = document.getElementById('manualOverflowGrid');
+                if (ovGrid) ovGrid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            }, 800);
+        });
+    })();
+    </script>
+
+    <script src="/static/citizen.js?v=12"></script>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         NEXUS AI CHAT WIDGET — Gemini + ElevenLabs Hindi Voice
+         ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- Floating AI bubble button (bottom-left) -->
+    <button id="aiChatBtn" onclick="toggleAIChat()"
+        style="position: fixed; left: 24px; bottom: 24px; width: 64px; height: 64px; border-radius: 50%;
+               background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%); color: white; border: none;
+               box-shadow: 0 8px 28px rgba(99,102,241,0.55); z-index: 10000; cursor: pointer;
+               font-size: 26px; display: flex; align-items: center; justify-content: center;
+               transition: transform 0.2s, box-shadow 0.2s;"
+        title="NEXUS AI सहायक — हिंदी में पूछें"
+        onmouseover="this.style.transform='scale(1.12)';this.style.boxShadow='0 12px 36px rgba(99,102,241,0.7)'"
+        onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 8px 28px rgba(99,102,241,0.55)'">
+        🤖
+    </button>
+
+    <!-- Floating LIVE Talk button -->
+    <button id="aiLiveBtn" onclick="startLiveMode()"
+        style="position: fixed; left: 24px; bottom: 100px; width: 54px; height: 54px; border-radius: 50%;
+               background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; border: none;
+               box-shadow: 0 6px 20px rgba(16,185,129,0.55); z-index: 10000; cursor: pointer;
+               font-size: 22px; display: flex; align-items: center; justify-content: center;
+               animation: liveBtnPulse 2.5s ease-in-out infinite; transition: transform 0.2s;"
+        title="Live Voice Talk — बोलकर बात करें"
+        onmouseover="this.style.transform='scale(1.12)';this.style.animationPlayState='paused'"
+        onmouseout="this.style.transform='scale(1)';this.style.animationPlayState='running'">
+        📞
+    </button>
+    <div style="position: fixed; left: 17px; bottom: 92px; z-index: 10001;
+                background: linear-gradient(135deg,#10B981,#059669); color: white;
+                border-radius: 6px; padding: 1px 5px; font-size: 8px; font-weight: 900;
+                letter-spacing: 0.8px; pointer-events: none;">LIVE</div>
+
+    <!-- AI Chat Panel -->
+    <div id="aiChatPanel"
+        style="display: none; flex-direction: column; position: fixed; left: 24px; bottom: 100px;
+               width: 360px; max-height: 540px; background: rgba(255,255,255,0.97);
+               backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+               border: 1px solid rgba(99,102,241,0.25); border-radius: 24px;
+               z-index: 10000; box-shadow: 0 24px 64px rgba(0,0,0,0.22); overflow: hidden;">
+
+        <!-- Panel header -->
+        <div style="background: linear-gradient(135deg, #6366F1, #8B5CF6); padding: 14px 18px;
+                    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 38px; height: 38px;
+                            display: flex; align-items: center; justify-content: center; font-size: 20px;">🤖</div>
+                <div>
+                    <div style="color: white; font-weight: 800; font-size: 14px; letter-spacing: 0.3px;">NEXUS AI सहायक</div>
+                    <div style="color: rgba(255,255,255,0.75); font-size: 10px; font-weight: 600;">लाइव डेटा से जुड़ा • हिंदी में बात करें</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="aiSpeakStatus"
+                    style="display: none; background: rgba(255,255,255,0.2); color: white;
+                           border-radius: 12px; padding: 3px 10px; font-size: 10px; font-weight: 700;">
+                    🔊 बोल रहा है...
+                </span>
+                <button onclick="toggleAIChat()"
+                    style="background: rgba(255,255,255,0.2); border: none; color: white; width: 30px; height: 30px;
+                           border-radius: 50%; cursor: pointer; font-size: 18px; display: flex;
+                           align-items: center; justify-content: center; transition: 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.35)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.2)'">&times;</button>
+            </div>
+        </div>
+
+        <!-- Messages container -->
+        <div id="aiMessages"
+            style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column;
+                   gap: 10px; min-height: 200px; max-height: 330px; background: #F8FAFC;">
+            <div style="align-self: flex-start; max-width: 88%;
+                        background: linear-gradient(135deg, #EEF2FF, #F0FDF4);
+                        border-radius: 16px 16px 16px 4px; padding: 12px 14px;
+                        font-size: 13px; color: #1E293B; line-height: 1.6; border: 1px solid rgba(99,102,241,0.1);">
+                🙏 नमस्ते! मैं <strong>NEXUS</strong> हूँ।<br>
+                दिल्ली के कचरा प्रबंधन के बारे में कुछ भी पूछें —<br>
+                वार्ड की स्थिति, डस्टबिन, सड़क की समस्याएं या मौसम।
+            </div>
+        </div>
+
+        <!-- Input area -->
+        <div style="padding: 12px 14px; border-top: 1px solid rgba(0,0,0,0.07);
+                    background: white; flex-shrink: 0;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input id="aiChatInput" type="text"
+                    placeholder="हिंदी या English में पूछें..."
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendAIMessage(); }"
+                    style="flex: 1; border: 1.5px solid rgba(99,102,241,0.3); border-radius: 20px;
+                           padding: 10px 16px; font-size: 13px; outline: none; background: #F8FAFC;
+                           font-family: inherit; transition: border-color 0.2s; color: #0F172A;"
+                    onfocus="this.style.borderColor='#6366F1'"
+                    onblur="this.style.borderColor='rgba(99,102,241,0.3)'">
+                <button id="aiMicBtn" onclick="startAIVoiceInput()" title="बोलकर पूछें"
+                    style="width: 38px; height: 38px; border-radius: 50%;
+                           background: rgba(99,102,241,0.1); color: #6366F1;
+                           border: 1.5px solid rgba(99,102,241,0.3); cursor: pointer;
+                           font-size: 16px; display: flex; align-items: center; justify-content: center;
+                           flex-shrink: 0; transition: 0.2s;"
+                    onmouseover="this.style.background='rgba(99,102,241,0.2)'"
+                    onmouseout="this.style.background='rgba(99,102,241,0.1)'">🎤</button>
+                <button onclick="sendAIMessage()"
+                    style="width: 38px; height: 38px; border-radius: 50%;
+                           background: linear-gradient(135deg, #6366F1, #8B5CF6);
+                           color: white; border: none; cursor: pointer; font-size: 16px;
+                           display: flex; align-items: center; justify-content: center;
+                           flex-shrink: 0; transition: 0.2s;"
+                    onmouseover="this.style.opacity='0.85'"
+                    onmouseout="this.style.opacity='1'">➤</button>
+            </div>
+            <div style="text-align: center; margin-top: 6px; font-size: 10px; color: #94A3B8; font-weight: 600;">
+                लाइव वार्ड डेटा से जुड़ा • ElevenLabs हिंदी आवाज़
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Auth0 module moved to citizen.js for correct scope access
+
+    // ═══════════════════════════════════════════════════
+    // NEXUS AI CHAT WIDGET
+    // ═══════════════════════════════════════════════════
+    let _aiOpen     = false;
+    let _aiHistory  = [];       // [{role:'user'|'model', text:'...'}]
+    let _aiAudio    = null;
+
+    function toggleAIChat() {
+        _aiOpen = !_aiOpen;
+        const panel = document.getElementById('aiChatPanel');
+        panel.style.display = _aiOpen ? 'flex' : 'none';
+        if (_aiOpen) {
+            setTimeout(() => document.getElementById('aiChatInput').focus(), 100);
+        } else {
+            // stop any ongoing speech
+            if (_aiAudio) { _aiAudio.pause(); _aiAudio = null; }
+            document.getElementById('aiSpeakStatus').style.display = 'none';
+        }
+    }
+
+    function _aiAppend(text, role) {
+        const msgs = document.getElementById('aiMessages');
+        const div = document.createElement('div');
+        div.style.cssText = role === 'user'
+            ? 'align-self:flex-end;max-width:82%;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:white;border-radius:16px 16px 4px 16px;padding:10px 14px;font-size:13px;line-height:1.55;word-break:break-word;'
+            : 'align-self:flex-start;max-width:88%;background:linear-gradient(135deg,#EEF2FF,#F0FDF4);border-radius:16px 16px 16px 4px;padding:12px 14px;font-size:13px;color:#1E293B;line-height:1.6;border:1px solid rgba(99,102,241,0.1);word-break:break-word;';
+        div.textContent = text;
+        msgs.appendChild(div);
+        msgs.scrollTop = msgs.scrollHeight;
+        return div;
+    }
+
+    function _aiTyping() {
+        const msgs = document.getElementById('aiMessages');
+        const div = document.createElement('div');
+        div.id = 'aiTyping';
+        div.style.cssText = 'align-self:flex-start;background:linear-gradient(135deg,#EEF2FF,#F0FDF4);border-radius:16px;padding:10px 16px;font-size:20px;letter-spacing:4px;color:#6366F1;';
+        div.textContent = '● ● ●';
+        msgs.appendChild(div);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function _aiRemoveTyping() {
+        const el = document.getElementById('aiTyping');
+        if (el) el.remove();
+    }
+
+    async function sendAIMessage() {
+        const input = document.getElementById('aiChatInput');
+        const message = input.value.trim();
+        if (!message) return;
+        input.value = '';
+        input.disabled = true;
+
+        _aiAppend(message, 'user');
+        _aiHistory.push({ role: 'user', text: message });
+        _aiTyping();
+
+        try {
+            const resp = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
+                body: JSON.stringify({ message, history: _aiHistory.slice(-6) })
+            });
+            const data = await resp.json();
+            _aiRemoveTyping();
+            const reply = data.reply || 'माफ़ करें, कोई जवाब नहीं मिला।';
+            _aiAppend(reply, 'bot');
+            _aiHistory.push({ role: 'model', text: reply });
+            _aiSpeak(reply);
+        } catch (e) {
+            _aiRemoveTyping();
+            _aiAppend('नेटवर्क की समस्या है। कृपया फिर से प्रयास करें।', 'bot');
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    function _aiSpeak(text, onDone) {
+        if (_aiAudio) { _aiAudio.pause(); _aiAudio = null; }
+        const statusEl = document.getElementById('aiSpeakStatus');
+        if (statusEl) statusEl.style.display = 'block';
+        // Streaming GET — browser starts playing on first audio chunk, no wait for full download
+        const speakText = text.trim().substring(0, 350);
+        const encoded   = encodeURIComponent(speakText);
+        _aiAudio = new Audio('/api/tts-stream?text=' + encoded);
+        _aiAudio.play().catch(() => {
+            if (statusEl) statusEl.style.display = 'none';
+            if (onDone) onDone();
+        });
+        _aiAudio.onended = () => {
+            if (statusEl) statusEl.style.display = 'none';
+            _aiAudio = null;
+            if (onDone) onDone();
+        };
+        _aiAudio.onerror = () => {
+            if (statusEl) statusEl.style.display = 'none';
+            _aiAudio = null;
+            if (onDone) onDone();
+        };
+    }
+
+    function startAIVoiceInput() {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { alert('आपका ब्राउज़र Voice Input को सपोर्ट नहीं करता।\nकृपया Chrome या Edge इस्तेमाल करें।'); return; }
+        const rec    = new SR();
+        rec.lang     = 'hi-IN';
+        rec.continuous = false;
+        rec.interimResults = false;
+        const btn = document.getElementById('aiMicBtn');
+        btn.textContent = '🔴';
+        btn.style.background = 'rgba(239,68,68,0.15)';
+        rec.onresult = e => {
+            document.getElementById('aiChatInput').value = e.results[0][0].transcript;
+            btn.textContent = '🎤';
+            btn.style.background = 'rgba(99,102,241,0.1)';
+            sendAIMessage();
+        };
+        rec.onerror  = () => { btn.textContent = '🎤'; btn.style.background = 'rgba(99,102,241,0.1)'; };
+        rec.onend    = () => { btn.textContent = '🎤'; btn.style.background = 'rgba(99,102,241,0.1)'; };
+        rec.start();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // LIVE TALK MODE — Hands-free voice loop (no typing needed)
+    // ═══════════════════════════════════════════════════════════
+    let _liveMode = false;
+    let _liveRec  = null;
+    let _liveLock = false;
+
+    function startLiveMode() {
+        _liveMode = true;
+        _liveLock = false;
+        document.getElementById('liveTalkOverlay').style.display = 'flex';
+        document.getElementById('liveReply').textContent      = 'मैं सुन रहा हूँ...';
+        document.getElementById('liveTranscript').textContent = 'बोलिए...';
+        _setLiveStatus('listening');
+        setTimeout(_liveListen, 500);
+    }
+
+    function stopLiveMode() {
+        _liveMode = false;
+        _liveLock = false;
+        if (_liveRec)  { try { _liveRec.stop(); } catch(e){} _liveRec = null; }
+        if (_aiAudio)  { _aiAudio.pause(); _aiAudio = null; }
+        document.getElementById('liveTalkOverlay').style.display = 'none';
+        const s = document.getElementById('aiSpeakStatus');
+        if (s) s.style.display = 'none';
+    }
+
+    function _setLiveStatus(state) {
+        const statusEl = document.getElementById('liveStatusText');
+        const iconEl   = document.getElementById('liveIcon');
+        const pulseEl  = document.getElementById('livePulseCircle');
+        if (!statusEl) return;
+        if (state === 'listening') {
+            statusEl.textContent    = '🎤  सुन रहा हूँ...';
+            iconEl.textContent      = '👂';
+            pulseEl.style.animation = 'liveListenPulse 1.2s ease-out infinite';
+        } else if (state === 'thinking') {
+            statusEl.textContent    = '🧠  सोच रहा हूँ...';
+            iconEl.textContent      = '🤖';
+            pulseEl.style.animation = 'none';
+        } else if (state === 'speaking') {
+            statusEl.textContent    = '🔊  बोल रहा हूँ...';
+            iconEl.textContent      = '💬';
+            pulseEl.style.animation = 'liveSpeakPulse 0.45s ease-in-out infinite';
+        }
+    }
+
+    function _liveListen() {
+        if (!_liveMode || _liveLock) return;
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            document.getElementById('liveTranscript').textContent = 'Chrome या Edge इस्तेमाल करें।';
+            return;
+        }
+        _setLiveStatus('listening');
+        document.getElementById('liveTranscript').textContent = '🎤 बोलिए...';
+        _liveRec = new SR();
+        _liveRec.lang           = 'hi-IN';
+        _liveRec.continuous     = false;
+        _liveRec.interimResults = false;
+        let gotResult = false;
+        _liveRec.onresult = (e) => {
+            gotResult = true;
+            const txt = e.results[0][0].transcript;
+            document.getElementById('liveTranscript').textContent = '🗣️ ' + txt;
+            _liveProcess(txt);
+        };
+        _liveRec.onerror = () => { if (_liveMode && !gotResult) setTimeout(_liveListen, 800); };
+        _liveRec.onend   = () => { if (_liveMode && !gotResult) setTimeout(_liveListen, 600); };
+        try { _liveRec.start(); } catch(e) {}
+    }
+
+    async function _liveProcess(text) {
+        if (!_liveMode) return;
+        _liveLock = true;
+        _setLiveStatus('thinking');
+        _aiHistory.push({ role: 'user', text });
+        try {
+            const resp = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await _authHeaders()) },
+                body: JSON.stringify({ message: text, history: _aiHistory.slice(-6) })
+            });
+            const data  = await resp.json();
+            const reply = data.reply || 'माफ़ करें, जवाब नहीं मिला।';
+            _aiHistory.push({ role: 'model', text: reply });
+            document.getElementById('liveReply').textContent = reply;
+            _setLiveStatus('speaking');
+            _aiSpeak(reply, () => {
+                _liveLock = false;
+                if (_liveMode) setTimeout(_liveListen, 700);
+            });
+        } catch(e) {
+            _liveLock = false;
+            if (_liveMode) setTimeout(_liveListen, 1000);
+        }
+    }
+    </script>
+
+    <!-- ═══ LIVE TALK OVERLAY ═══ -->
+    <div id="liveTalkOverlay"
+        style="display:none; position:fixed; inset:0; background:rgba(2,6,23,0.93);
+               z-index:20000; flex-direction:column; align-items:center; justify-content:center;
+               backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);">
+        <div style="background:linear-gradient(145deg,#0F172A,#1E1B4B); border-radius:32px;
+                    padding:40px 36px; text-align:center; width:300px; max-width:90vw;
+                    box-shadow:0 40px 100px rgba(0,0,0,0.7); border:1px solid rgba(99,102,241,0.2);">
+
+            <!-- Pulsing avatar ring -->
+            <div style="position:relative; width:110px; height:110px; margin:0 auto 20px;
+                        display:flex; align-items:center; justify-content:center;">
+                <div id="livePulseCircle"
+                    style="position:absolute; inset:0; border-radius:50%;
+                           background:linear-gradient(135deg,#6366F1,#8B5CF6); opacity:0.15;"></div>
+                <div style="width:82px; height:82px; border-radius:50%;
+                            background:linear-gradient(135deg,#6366F1,#8B5CF6);
+                            display:flex; align-items:center; justify-content:center;
+                            z-index:1; position:relative; box-shadow:0 8px 28px rgba(99,102,241,0.5);">
+                    <span id="liveIcon" style="font-size:38px;">🤖</span>
+                </div>
+            </div>
+
+            <div style="color:white; font-weight:800; font-size:18px; margin-bottom:4px;
+                        letter-spacing:0.5px;">NEXUS AI सहायक</div>
+            <div id="liveStatusText"
+                style="color:#A78BFA; font-size:13px; font-weight:700; margin-bottom:20px;
+                       letter-spacing:0.3px;">जुड़ रहा है...</div>
+
+            <!-- What you said -->
+            <div style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase;
+                        letter-spacing:0.5px; text-align:left; margin-bottom:4px;">आपने कहा</div>
+            <div id="liveTranscript"
+                style="background:rgba(255,255,255,0.04); border-radius:12px; padding:10px 14px;
+                       color:#CBD5E1; font-size:13px; min-height:34px; margin-bottom:12px;
+                       border:1px solid rgba(255,255,255,0.07); text-align:left; line-height:1.5;">बोलिए...</div>
+
+            <!-- NEXUS reply -->
+            <div style="font-size:10px; font-weight:700; color:#6366F1; text-transform:uppercase;
+                        letter-spacing:0.5px; text-align:left; margin-bottom:4px;">NEXUS</div>
+            <div id="liveReply"
+                style="background:rgba(99,102,241,0.12); border-radius:12px; padding:10px 14px;
+                       color:#C4B5FD; font-size:13px; min-height:48px; margin-bottom:28px;
+                       border:1px solid rgba(99,102,241,0.2); text-align:left; line-height:1.55;">मैं सुन रहा हूँ...</div>
+
+            <!-- End call -->
+            <button onclick="stopLiveMode()"
+                style="width:62px; height:62px; border-radius:50%;
+                       background:linear-gradient(135deg,#EF4444,#DC2626); color:white;
+                       border:none; font-size:28px; cursor:pointer;
+                       box-shadow:0 8px 24px rgba(239,68,68,0.45); transition:transform 0.2s;"
+                onmouseover="this.style.transform='scale(1.1)'"
+                onmouseout="this.style.transform='scale(1)'">📵</button>
+            <div style="color:#475569; font-size:11px; margin-top:8px; font-weight:600;">कॉल समाप्त करें</div>
+        </div>
+    </div>
+
+    <style>
+    @keyframes liveListenPulse {
+        0%   { transform: scale(1);   opacity: 0.2; }
+        60%  { transform: scale(1.7); opacity: 0; }
+        100% { transform: scale(1);   opacity: 0; }
+    }
+    @keyframes liveSpeakPulse {
+        0%, 100% { transform: scale(1);    opacity: 0.2; }
+        50%       { transform: scale(1.35); opacity: 0.05; }
+    }
+    @keyframes liveBtnPulse {
+        0%, 100% { box-shadow: 0 6px 20px rgba(16,185,129,0.55); }
+        50%      { box-shadow: 0 6px 32px rgba(16,185,129,0.9); }
+    }
+    </style>
+
 </body>
 
 </html>

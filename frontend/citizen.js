@@ -3,6 +3,96 @@
  * Multi-section dashboard with single persistent WebSocket connection.
  */
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTH0 MODULE
+// ═══════════════════════════════════════════════════════════════════════════
+let _auth0Client = null;
+let _authUser    = null;   // {name, email, picture, sub}
+let _authToken   = null;   // access_token (in memory only — never localStorage)
+
+async function _initAuth0() {
+    if (typeof auth0 === 'undefined') {
+        console.warn('[Auth0] SDK not loaded, running in offline mode.');
+        return;
+    }
+    try {
+        _auth0Client = await auth0.createAuth0Client({
+            domain:        'dev-kklommsgij3qgkij.us.auth0.com',
+            clientId:      'JUpaLQX0981B0A1FL4yQA7dFUHImqbPU',
+            authorizationParams: { audience: 'https://infrawatch-nexus-api', scope: 'openid profile email' },
+            cacheLocation: 'memory',
+            useRefreshTokens: true,
+        });
+        if (location.search.includes('code=') && location.search.includes('state=')) {
+            await _auth0Client.handleRedirectCallback();
+            history.replaceState({}, document.title, location.pathname + location.hash);
+        }
+        const isAuth = await _auth0Client.isAuthenticated();
+        if (isAuth) {
+            _authUser  = await _auth0Client.getUser();
+            _authToken = await _auth0Client.getTokenSilently({
+                authorizationParams: { audience: 'https://infrawatch-nexus-api', scope: 'openid profile email' }
+            });
+            _renderAuthBtn(true);
+        }
+    } catch (e) {
+        console.warn('[Auth0] Init failed (offline mode):', e.message);
+    }
+}
+
+function _renderAuthBtn(loggedIn) {
+    const btn = document.getElementById('authBtn');
+    if (!btn) return;
+    if (loggedIn && _authUser) {
+        const name = _authUser.name || _authUser.email || 'User';
+        const pic  = _authUser.picture
+            ? `<img src="${_authUser.picture}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;" />`
+            : '\u{1F464}';
+        const pts  = profile ? `<span style="font-size:10px;opacity:0.75;margin-left:4px;">${profile.badge} ${profile.civic_points}pts</span>` : '';
+        btn.innerHTML = `${pic} ${name.split(' ')[0]}${pts}`;
+        btn.style.background = 'linear-gradient(135deg,#6366F1,#8B5CF6)';
+        btn.title = `${profile ? profile.badge + ' · ' + profile.civic_points + ' Civic Points' : 'Civic profile loading...'} — Click to logout`;
+    } else {
+        btn.innerHTML = '\u{1F464} Login';
+        btn.style.background = '#0F172A';
+        btn.title = 'Login with Auth0';
+    }
+}
+
+async function handleAuthClick() {
+    if (!_auth0Client) { alert('Auth0 not loaded yet. Please refresh.'); return; }
+    const isAuth = await _auth0Client.isAuthenticated();
+    if (isAuth) {
+        _authUser  = null;
+        _authToken = null;
+        _renderAuthBtn(false);
+        await _auth0Client.logout({ logoutParams: { returnTo: location.origin } });
+    } else {
+        await _auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: location.origin } });
+    }
+}
+
+async function _authHeaders() {
+    if (!_auth0Client) return {};
+    try {
+        _authToken = await _auth0Client.getTokenSilently({
+            authorizationParams: { audience: 'https://infrawatch-nexus-api', scope: 'openid profile email' }
+        });
+        console.log('[Auth] Token obtained, length:', _authToken ? _authToken.length : 0);
+        return { 'Authorization': 'Bearer ' + _authToken };
+    } catch (e) {
+        console.warn('[Auth] getTokenSilently failed:', e.message || e);
+        if (e.error === 'login_required' || e.error === 'consent_required') {
+            await _auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: location.origin } });
+        }
+        return {};
+    }
+}
+
+window.addEventListener('DOMContentLoaded', _initAuth0);
+
+// ═══════════════════════════════════════════════════════════════════════════
+
 const API_BASE = window.location.origin;
 const WS_SCHEME = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_URL = `${WS_SCHEME}://${window.location.host}/ws`;
@@ -23,6 +113,7 @@ let routeLines = [];
 
 // Report state
 let detectedDustbinId = null;
+let detectedPhotoUrl  = null;  // Vultr Object Storage URL from detect step
 let selectedOverflow = 3;
 let manualSelectedOverflow = 3;
 
@@ -381,7 +472,8 @@ function updateStatsBar() {
     document.getElementById('statTotalBins').textContent = total;
     document.getElementById('statOverflowing').textContent = overflowing;
     document.getElementById('statCollection').textContent = `${collectionRate}%`;
-    document.getElementById('statBar').style.width = `${collectionRate}%`;
+    const statBarEl = document.getElementById('statBar');
+    if (statBarEl) statBarEl.style.width = `${collectionRate}%`;
 
     // High priority label
     const hpEl = document.getElementById('statHighPriority');
@@ -633,14 +725,20 @@ function initReportFlow() {
         try {
             const formData = new FormData();
             formData.append('file', photoInput.files[0]);
-            const resp = await fetch(`${API_BASE}/api/report/dustbin/detect`, { method: 'POST', body: formData });
+            const resp = await fetch(`${API_BASE}/api/report/dustbin/detect`, {
+                method: 'POST',
+                headers: { ...(await _authHeaders()) },  // Auth0 token for user-tagged photo storage
+                body: formData
+            });
             const data = await resp.json();
 
-            if (data.dustbin_id) {
-                detectedDustbinId = data.dustbin_id;
-                document.getElementById('detectedId').textContent = data.dustbin_id;
+            if (data.dustbin_id || data.detected_id) {
+                detectedDustbinId = data.dustbin_id || data.detected_id;
+                detectedPhotoUrl  = data.photo_url || null;  // Vultr URL (null if no Vultr keys)
+                document.getElementById('detectedId').textContent = detectedDustbinId;
                 document.getElementById('detectedStreet').textContent = data.street || '';
                 document.getElementById('detectionResult').classList.remove('hidden');
+                if (detectedPhotoUrl) console.log('[Vultr] Evidence stored:', detectedPhotoUrl);
             } else {
                 showToast(data.message || 'Detection failed. Try manual.', 'error');
             }
@@ -675,7 +773,7 @@ function initReportFlow() {
     // Confirm AI detection
     document.getElementById('btnConfirm').addEventListener('click', async () => {
         if (!detectedDustbinId) return;
-        await submitReport(detectedDustbinId, selectedOverflow);
+        await submitReport(detectedDustbinId, selectedOverflow, detectedPhotoUrl);
     });
 
     // Submit manual report
@@ -686,23 +784,31 @@ function initReportFlow() {
     });
 }
 
-async function submitReport(dustbinId, overflow) {
+async function submitReport(dustbinId, overflow, photoUrl) {
+    // Get Auth0 token if user is logged in (defined in citizen.js Auth0 module)
+    const authHdrs = await _authHeaders();
     try {
         const resp = await fetch(`${API_BASE}/api/report/dustbin/confirm`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dustbin_id: dustbinId, overflow_level: overflow })
+            headers: { 'Content-Type': 'application/json', ...authHdrs },
+            body: JSON.stringify({ dustbin_id: dustbinId, overflow_level: overflow, photo_url: photoUrl || null })
         });
 
         if (resp.ok) {
+            const data = await resp.json();
             showToast(`Report submitted for ${dustbinId}!`, 'success');
             addRecentReport(dustbinId);
+
+            // ElevenLabs Hindi voice confirmation
+            const speakMsg = 'आपकी शिकायत सफलतापूर्वक दर्ज हो गई!';
+            if (typeof _aiSpeak === 'function') _aiSpeak(speakMsg);
 
             // Reset form
             document.getElementById('detectionResult').classList.add('hidden');
             document.getElementById('photoPreview').classList.add('hidden');
             document.getElementById('uploadZone').style.display = '';
             detectedDustbinId = null;
+            detectedPhotoUrl  = null;
         } else {
             const err = await resp.json();
             showToast(err.detail || 'Submission failed.', 'error');
@@ -913,6 +1019,13 @@ function addFeedEvent(event) {
     const empty = feed.querySelector('.feed-empty');
     if (empty) empty.remove();
 
+    // ElevenLabs proactive voice alert for critical civic events (post-seed only)
+    if (event.priority >= 3 && seedGenerated && typeof _aiSpeak === 'function') {
+        const parts = event.text.split(' ');
+        const binId = parts[0] || 'डस्टबिन';
+        _aiSpeak(`चेतावनी! ${binId} क्रिटिकल स्तर पर पहुंच गया। तुरंत कार्रवाई आवश्यक है।`);
+    }
+
     // Create event card
     const el = document.createElement('div');
     el.className = `feed-event ${event.type}`;
@@ -957,8 +1070,6 @@ function firePushNotification(event) {
         try {
             const notif = new Notification(event.pushTitle || 'InfraWatch Alert', {
                 body: event.pushBody || event.text,
-                icon: '⚡',
-                badge: '⚡',
                 tag: `infrawatch-${Date.now()}`,
                 requireInteraction: event.priority >= 3
             });

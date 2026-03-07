@@ -28,7 +28,7 @@ async function fetchMultiRoutes(ri) {
 
     try {
         const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=true`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        const resp = await fetch(url, { signal: AbortSignal.timeout(2000) });
         const data = await resp.json();
 
         if (data.routes && data.routes.length > 0) {
@@ -41,11 +41,12 @@ async function fetchMultiRoutes(ri) {
             return routes;
         }
     } catch (e) {
-        console.warn('OSRM multi-route retry next tick:', e.message);
+        console.warn('OSRM multi-route fallback active:', e.message);
     }
 
-    // Fallback: NOT CACHED — will retry on next updateMap call
-    return [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
+    const fallback = [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
+    multiRouteCache[cacheKey] = fallback;
+    return fallback;
 }
 
 // Single-route fetch (used by zoomToItem highlight)
@@ -55,7 +56,7 @@ async function fetchRoadPath(ri) {
 
     try {
         const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        const resp = await fetch(url, { signal: AbortSignal.timeout(2000) });
         const data = await resp.json();
 
         if (data.routes && data.routes.length > 0) {
@@ -64,11 +65,12 @@ async function fetchRoadPath(ri) {
             return coords;
         }
     } catch (e) {
-        console.warn('OSRM routing retry next tick:', e.message);
+        console.warn('OSRM routing fallback active:', e.message);
     }
 
-    // Fallback: NOT CACHED — will retry
-    return [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
+    const fallback = [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
+    routeCache[cacheKey] = fallback;
+    return fallback;
 }
 
 // ── INIT ────────────────────────────────────────────────────────────
@@ -216,10 +218,11 @@ function createDivIcon(stateClass, sizeClass) {
 }
 
 function initMap() {
+    if (map) return;
     const center = configData?.city_center || { lat: 28.6139, lng: 77.2090 };
     map = L.map('map', { center: [center.lat, center.lng], zoom: 11 });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© CARTO', maxZoom: 19
     }).addTo(map);
 
@@ -470,7 +473,7 @@ function zoomToItem(index) {
             // Flash white highlight
             const flashIcon = L.divIcon({
                 className: '',
-                html: `<div class="marker-icon marker-xl" style="background:#fff;box-shadow:0 0 20px rgba(255,255,255,0.8);">🗑️</div>`,
+                html: `<div class="marker-icon marker-xl" style="background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.2);">🗑️</div>`,
                 iconSize: [42, 42], iconAnchor: [21, 21], popupAnchor: [0, -21]
             });
             marker.setIcon(flashIcon);

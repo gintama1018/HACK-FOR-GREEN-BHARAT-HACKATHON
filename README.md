@@ -5,6 +5,9 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green?logo=fastapi)
 ![Pathway](https://img.shields.io/badge/Pathway-Streaming_Engine-yellow?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAA)
 ![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-purple?logo=google)
+![Auth0](https://img.shields.io/badge/Auth0-Identity-orange?logo=auth0)
+![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Voice_AI-black?logo=elevenlabs)
+![Vultr](https://img.shields.io/badge/Vultr-Object_Storage-blue?logo=vultr)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-Hackathon-orange)
 
@@ -12,6 +15,13 @@
 
 > **Live Demo:** [https://infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com)
 > **Admin Portal:** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) (Token: `INFRAWATCH_ADMIN_2026`)
+
+### Sponsor Integrations
+| Partner | Integration |
+|---------|-------------|
+| **Auth0** | Citizen identity — JWT-secured reporting, user history via `/api/my-reports` |
+| **ElevenLabs** | Hindi voice AI — real-time TTS confirmations and critical ward alerts |
+| **Vultr** | Object Storage — photo evidence from every citizen report stored permanently |
 
 ### Quickstart — Run in 3 Commands
 
@@ -196,19 +206,38 @@ Most dashboards use passive databases — you have to *ask* them for information
 - **Simulate Crisis**: Demo button injects severe events into Ward 12 for live judge demonstration
 - **Predictive Risk Forecasting**: ML-powered 3-day risk prediction using weather forecast data
 
-### 4. Neumorphic Citizen Portal
+### 4. Auth0 Citizen Identity
+- **JWT Authentication**: Citizens log in with Auth0 (social or email) — Bearer tokens attached to every report
+- **Verified Reports**: Each submission is linked to a real Auth0 user identity (`sub` claim)
+- **Report History**: Authenticated citizens can view their own past submissions via `/api/my-reports`
+- **Graceful Offline Mode**: Portal fully functional without login; auth enhances accountability
+
+### 5. ElevenLabs Hindi Voice AI
+- **Report Confirmation**: After submitting a report, ElevenLabs speaks a Hindi confirmation: *"आपकी शिकायत सफलतापूर्वक दर्ज हो गई!"*
+- **Critical Ward Alerts**: When a dustbin escalates to Priority ≥ 3 in the live feed, ElevenLabs announces it in Hindi
+- **AI Chat Voice**: The citizen AI assistant (`/api/chat`) can respond via voice using the TTS stream endpoint
+- **Model**: `eleven_turbo_v2_5` — low-latency, Hindi-optimized
+
+### 6. Vultr Object Storage — Photo Evidence
+- **Permanent Storage**: Every citizen photo uploaded during AI scan is stored to Vultr Object Storage (S3-compatible)
+- **Public URL**: The `photo_url` is persisted in the waste event JSON alongside the report
+- **Bucket**: `infrawatch-evidence` at `ewr1.vultrobjects.com`
+- **boto3 Integration**: Standard S3 API with `ACL=public-read` for fast media delivery
+
+### 7. Neumorphic Citizen Portal
 - **Modern Neumorphic UI**: Soft shadows, glassmorphism panels, premium dark theme
 - **Sidebar Navigation**: Dedicated pages for Dashboard, Wards, Alerts, and Settings
 - **Live Statistics Bar**: Real-time counters for total bins, active alerts, and rain status
 - **Interactive Map**: Leaflet.js with color-coded dustbin markers and clustered road hazard routes
 
-### 5. Real-Time WebSocket Sync
+### 8. Real-Time WebSocket Sync
 - Single WebSocket channel broadcasts identical atomic state to all connected portals
 - Auto-reconnect with exponential backoff
 - Both Citizens' and Admin maps update simultaneously within milliseconds
 
-### 6. Security & Auth
+### 9. Security & Auth
 - Admin endpoints protected by `Bearer` token auth (strict 401 on failure)
+- Citizen endpoints optionally accept Auth0 JWT (`Authorization: Bearer <token>`) — identity extracted from RS256-verified `sub` claim
 - In-memory O(1) dedup prevents duplicate reports within 5-minute windows
 - Dustbin ID validation via strict regex against the MCD registry
 
@@ -274,12 +303,15 @@ Clear ──[1+ reports]──> Reported ──[3+ reports OR overflow ≥ 4]─
 | `GET` | `/api/dashboard` | — | Full cached Pathway state |
 | `GET` | `/api/dustbins` | — | Dustbin registry + live status merge |
 | `GET` | `/api/forecast` | — | 3-day predictive risk forecast |
-| `POST` | `/api/report/dustbin/detect` | — | Upload photo → Gemini AI extraction |
-| `POST` | `/api/report/dustbin/confirm` | — | Confirm detected ID → write event |
-| `POST` | `/api/report/road-issue` | Bearer | Admin: report road hazard |
-| `POST` | `/api/van/collection` | Bearer | Admin: mark dustbin as collected |
-| `POST` | `/api/van/clear-road` | Bearer | Admin: mark road issue as resolved |
-| `POST` | `/api/demo/simulate-crisis` | Bearer | Demo: inject synthetic crisis |
+| `POST` | `/api/report/dustbin/detect` | Auth0 JWT (optional) | Upload photo → Gemini AI extraction + Vultr storage |
+| `POST` | `/api/report/dustbin/confirm` | Auth0 JWT (optional) | Confirm detected ID → write event, link user identity |
+| `GET` | `/api/my-reports` | Auth0 JWT (required) | Citizen's own report history |
+| `GET` | `/api/tts-stream` | — | ElevenLabs Hindi TTS stream (`?text=...`) |
+| `POST` | `/api/chat` | Auth0 JWT (optional) | Gemini AI civic assistant (Hindi) |
+| `POST` | `/api/report/road-issue` | Admin Bearer | Admin: report road hazard |
+| `POST` | `/api/van/collection` | Admin Bearer | Admin: mark dustbin as collected |
+| `POST` | `/api/van/clear-road` | Admin Bearer | Admin: mark road issue as resolved |
+| `POST` | `/api/demo/simulate-crisis` | Admin Bearer | Demo: inject synthetic crisis |
 | `WS` | `/ws` | — | Real-time state broadcast |
 
 ---
@@ -316,9 +348,12 @@ sequenceDiagram
 ## How to Run Locally
 
 ### Requirements
-- Python 3.10+ (Ubuntu WSL strongly recommended)
+- Python 3.10+
 - Google Gemini API Key ([Get one free](https://aistudio.google.com/))
 - WeatherAPI.com API Key ([Get one free](https://www.weatherapi.com/))
+- Auth0 account + application ([Free at auth0.com](https://auth0.com/))
+- ElevenLabs API Key ([Free tier at elevenlabs.io](https://elevenlabs.io/))
+- Vultr Object Storage bucket ([Free trial at vultr.com](https://www.vultr.com/)) *(optional — falls back gracefully)*
 
 ### Setup
 ```bash
@@ -331,9 +366,24 @@ pip install -r requirements.txt
 
 ### Configure `.env`
 ```env
+# Core
 WX_API_KEY=your_weatherapi_key
 GEMINI_API_KEY=your_google_ai_studio_key
 ADMIN_TOKEN=INFRAWATCH_ADMIN_2026
+
+# Auth0 (citizen identity)
+AUTH0_DOMAIN=your-tenant.us.auth0.com
+AUTH0_AUDIENCE=https://infrawatch-nexus-api
+
+# ElevenLabs (Hindi voice AI)
+ELEVENLABS_API_KEY=your_elevenlabs_key
+ELEVENLABS_VOICE_ID=56k72tYpS6hbRADdszYg
+
+# Vultr Object Storage (photo evidence)
+VULTR_ACCESS_KEY=your_vultr_access_key
+VULTR_SECRET_KEY=your_vultr_secret_key
+VULTR_BUCKET=infrawatch-evidence
+VULTR_ENDPOINT=https://ewr1.vultrobjects.com
 ```
 
 ### Run
@@ -385,6 +435,9 @@ graph LR
 |-----------|---------|------|
 | Web Server + Pathway Engine | Render.com Web Service | Free / Starter ($7/mo) |
 | AI Vision (Gemini 2.5 Flash) | Google AI Studio | Free tier (15 RPM) |
+| Citizen Identity | Auth0 | Free tier (7,500 MAU) |
+| Voice AI | ElevenLabs | Free tier (10K chars/mo) |
+| Photo Storage | Vultr Object Storage | Free trial / $5/mo |
 | Weather Data | WeatherAPI.com | Free tier (1M calls/mo) |
 | CI/CD | GitHub Actions | Free (2000 min/mo) |
 
@@ -411,9 +464,11 @@ graph LR
 | Layer | Mechanism |
 |-------|-----------|
 | Admin Endpoints | Bearer token authentication (strict 401) |
+| Citizen Identity | Auth0 JWT (RS256) — `sub` claim extracted server-side; never trusted from client |
 | Report Dedup | In-memory O(1) cache, 5-min window |
 | Dustbin ID Validation | Strict regex `MCD-W\d{2}-\d{3}` against registry |
 | Data Integrity | Atomic file writes (temp + rename) |
+| Photo Storage | Vultr Object Storage via boto3 — client never touches storage credentials |
 | CORS | Configurable origin whitelist |
 
 ---
@@ -465,8 +520,10 @@ Our approach is informed by recent academic research in smart city waste managem
 | **Python 3.10** | Backend runtime |
 | **FastAPI** | Async web framework & WebSocket server |
 | **Pathway** | Real-time streaming data engine |
-| **Gemini 2.5 Flash** | Computer vision for waste detection |
-| **WeatherAPI.com** | Live rainfall data integration |
+| **Gemini 2.5 Flash** | Computer vision for waste detection || **Auth0** | Citizen identity & JWT authentication |
+| **ElevenLabs** | Hindi voice AI — TTS confirmations & alerts |
+| **Vultr Object Storage** | Permanent photo evidence storage (S3-compatible) |
+| **boto3** | Vultr/S3 Object Storage SDK || **WeatherAPI.com** | Live rainfall data integration |
 | **Leaflet.js** | Interactive map rendering |
 | **OSRM** | Open-source road routing engine |
 | **pdfplumber** | Government PDF data extraction |
