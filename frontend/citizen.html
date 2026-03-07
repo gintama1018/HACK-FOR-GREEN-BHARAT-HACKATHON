@@ -462,7 +462,7 @@
     })();
     </script>
 
-    <script src="/static/citizen.js?v=13"></script>
+    <script src="/static/citizen.js?v=14"></script>
 
     <!-- ═══════════════════════════════════════════════════════════════
          NEXUS AI CHAT WIDGET — Gemini + ElevenLabs Hindi Voice
@@ -663,28 +663,38 @@
         }
     }
 
-    function _aiSpeak(text, onDone) {
+    async function _aiSpeak(text, onDone) {
         if (_aiAudio) { _aiAudio.pause(); _aiAudio = null; }
         const statusEl = document.getElementById('aiSpeakStatus');
         if (statusEl) statusEl.style.display = 'block';
-        // Streaming GET — browser starts playing on first audio chunk, no wait for full download
         const speakText = text.trim().substring(0, 350);
-        const encoded   = encodeURIComponent(speakText);
-        _aiAudio = new Audio('/api/tts-stream?text=' + encoded);
-        _aiAudio.play().catch(() => {
+        try {
+            const resp = await fetch('/api/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: speakText })
+            });
+            if (!resp.ok) throw new Error('TTS ' + resp.status);
+            const blob = await resp.blob();
+            const url  = URL.createObjectURL(blob);
+            _aiAudio = new Audio(url);
+            _aiAudio.onended = () => {
+                URL.revokeObjectURL(url);
+                if (statusEl) statusEl.style.display = 'none';
+                _aiAudio = null;
+                if (onDone) onDone();
+            };
+            _aiAudio.onerror = () => {
+                URL.revokeObjectURL(url);
+                if (statusEl) statusEl.style.display = 'none';
+                _aiAudio = null;
+                if (onDone) onDone();
+            };
+            await _aiAudio.play();
+        } catch (e) {
             if (statusEl) statusEl.style.display = 'none';
             if (onDone) onDone();
-        });
-        _aiAudio.onended = () => {
-            if (statusEl) statusEl.style.display = 'none';
-            _aiAudio = null;
-            if (onDone) onDone();
-        };
-        _aiAudio.onerror = () => {
-            if (statusEl) statusEl.style.display = 'none';
-            _aiAudio = null;
-            if (onDone) onDone();
-        };
+        }
     }
 
     function startAIVoiceInput() {
