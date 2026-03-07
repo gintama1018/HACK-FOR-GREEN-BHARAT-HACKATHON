@@ -20,3 +20,7 @@ services:
         value: JUpaLQX0981B0A1FL4yQA7dFUHImqbPU
       - key: AUTH0_AUDIENCE
         value: https://infrawatch-nexus-api
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        value: 56k72tYpS6hbRADdszYg

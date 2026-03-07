@@ -1016,7 +1016,8 @@ async def tts_stream_get(text: str):
 
     clean = text.strip()[:600]
     if not clean or not ELEVENLABS_KEY:
-        return JSONResponse(content={"error": "not configured"}, status_code=503)
+        from fastapi.responses import Response as _R
+        return _R(status_code=204)  # no TTS key — silently skip, browser audio.onerror handles it
 
     def _gen():
         try:
