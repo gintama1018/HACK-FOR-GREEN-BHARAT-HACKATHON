@@ -48,10 +48,9 @@ function _renderAuthBtn(loggedIn) {
         const pic  = _authUser.picture
             ? `<img src="${_authUser.picture}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;" />`
             : '\u{1F464}';
-        const pts  = profile ? `<span style="font-size:10px;opacity:0.75;margin-left:4px;">${profile.badge} ${profile.civic_points}pts</span>` : '';
-        btn.innerHTML = `${pic} ${name.split(' ')[0]}${pts}`;
+        btn.innerHTML = `${pic} ${name.split(' ')[0]}`;
         btn.style.background = 'linear-gradient(135deg,#6366F1,#8B5CF6)';
-        btn.title = `${profile ? profile.badge + ' · ' + profile.civic_points + ' Civic Points' : 'Civic profile loading...'} — Click to logout`;
+        btn.title = 'Logged in — Click to logout';
     } else {
         btn.innerHTML = '\u{1F464} Login';
         btn.style.background = '#0F172A';

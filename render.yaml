@@ -14,3 +14,9 @@ services:
         sync: false
       - key: ADMIN_TOKEN
         sync: false
+      - key: AUTH0_DOMAIN
+        value: dev-kklommsgij3qgkij.us.auth0.com
+      - key: AUTH0_CLIENT_ID
+        value: JUpaLQX0981B0A1FL4yQA7dFUHImqbPU
+      - key: AUTH0_AUDIENCE
+        value: https://infrawatch-nexus-api
