@@ -417,52 +417,7 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- QR Pre-fill: runs before citizen.js, opens complaint panel to correct bin -->
-    <script>
-    (function() {
-        const _bin = window._QR_PREFILL_BIN;
-        if (!_bin) return;
-        // Wait until citizen.js has loaded and DOM is ready
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                // 1. Switch to dashboard section (complaint panel lives there)
-                if (typeof switchSection === 'function') switchSection('dashboard');
-
-                // 2. Make sure complaint panel is visible
-                const panel = document.getElementById('rightComplaintPanel');
-                if (panel) {
-                    panel.style.transform  = 'scale(1)';
-                    panel.style.opacity    = '1';
-                    panel.style.pointerEvents = 'auto';
-                }
-
-                // 3. Pre-select the dustbin in the manual dropdown
-                const sel = document.getElementById('manualDustbinSelect');
-                if (sel) {
-                    sel.value = _bin;
-                    sel.dispatchEvent(new Event('change'));
-                }
-
-                // 4. Show a QR toast so citizen knows the bin was detected
-                const toastEl = document.getElementById('toastContainer');
-                if (toastEl) {
-                    const t = document.createElement('div');
-                    t.style.cssText = 'background:#10B981;color:white;padding:12px 18px;border-radius:14px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,0.2);margin-bottom:8px;animation:fadeInUp 0.4s ease;';
-                    t.innerHTML = '\u2705 QR स्कैन सफल — ' + _bin + ' चुना गया';
-                    toastEl.appendChild(t);
-                    setTimeout(() => t.remove(), 4000);
-                }
-
-                // 5. Scroll/focus to overflow selector
-                const ovGrid = document.getElementById('manualOverflowGrid');
-                if (ovGrid) ovGrid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-            }, 800);
-        });
-    })();
-    </script>
-
-    <script src="/static/citizen.js?v=14"></script>
+    <script src="/static/citizen.js?v=15"></script>
 
     <!-- ═══════════════════════════════════════════════════════════════
          NEXUS AI CHAT WIDGET — Gemini + ElevenLabs Hindi Voice

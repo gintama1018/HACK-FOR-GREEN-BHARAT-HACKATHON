@@ -240,6 +240,27 @@ async function loadConfig() {
                 }
             }
         });
+
+        // QR pre-fill: if page opened via /report?bin=MCD-DL-XXXX
+        const _prefillBin = window._QR_PREFILL_BIN;
+        if (_prefillBin && configData.dustbins[_prefillBin]) {
+            const binInfo = configData.dustbins[_prefillBin];
+            // 1. Set ward (triggers the change event which populates bin dropdown)
+            manualWard.value = binInfo.ward_id;
+            manualWard.dispatchEvent(new Event('change'));
+            // 2. Set bin
+            const binSel = document.getElementById('manualDustbin');
+            binSel.value = _prefillBin;
+            // 3. Switch to report tab and scroll panel into view
+            switchSection('dashboard');
+            setTimeout(() => {
+                const ptab = document.querySelector('[data-ptab="ptab-report"]');
+                if (ptab) switchPanelTab(ptab);
+                const ovGrid = document.getElementById('manualOverflowGrid');
+                if (ovGrid) ovGrid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showToast('\u2705 QR स्कैन सफल — ' + _prefillBin + ' चुना गया', 'success');
+            }, 300);
+        }
     } catch (e) {
         showToast('Configuration failed to load.', 'error');
     }
