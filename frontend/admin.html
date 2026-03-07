@@ -14,6 +14,7 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 
 <body>
@@ -70,6 +71,7 @@
                 <button class="tab-btn" data-tab="tab-road">Road Form</button>
                 <button class="tab-btn" data-tab="tab-analytics">Analytics</button>
                 <button class="tab-btn" data-tab="tab-forecast">🔮 Forecast</button>
+                <button class="tab-btn" data-tab="tab-qr">📱 QR Codes</button>
             </div>
 
 
@@ -156,6 +158,14 @@
                 </div>
             </div>
 
+            <!-- TAB 5: QR CODE GENERATOR -->
+            <div class="tab-content" id="tab-qr">
+                <h3 style="font-size:14px;margin-bottom:12px;">📱 Dustbin QR Codes</h3>
+                <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">Each QR opens the citizen report form pre-filled for that bin.</p>
+                <input id="qrSearch" type="text" placeholder="Search bin ID or ward..." style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;margin-bottom:12px;box-sizing:border-box;">
+                <div id="qrGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:520px;overflow-y:auto;"></div>
+            </div>
+
             <!-- TAB 4: PREDICTIVE FORECAST -->
             <div class="tab-content" id="tab-forecast">
                 <h3 style="font-size: 14px; margin-bottom: 16px;">🔮 3-Day Predictive Risk Forecast</h3>
@@ -172,6 +182,66 @@
 
     <div class="toast-container" id="toastContainer"></div>
     <script src="/static/admin.js?v=10"></script>
+    <script>
+    // ── QR CODE TAB ───────────────────────────────────────────────
+    (function() {
+        let _qrRendered = false;
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-tab="tab-qr"]');
+            if (!btn || _qrRendered) return;
+            _qrRendered = true;
+            _buildQR('');
+        });
+        document.getElementById('qrSearch').addEventListener('input', function() {
+            _buildQR(this.value.trim().toLowerCase());
+        });
+        function _buildQR(filter) {
+            fetch('/api/dustbins').then(r => r.json()).then(data => {
+                const grid   = document.getElementById('qrGrid');
+                const origin = window.location.origin;
+                grid.innerHTML = '';
+                const bins = Array.isArray(data) ? data : Object.keys(data.dustbins || data);
+                bins.filter(b => {
+                    const id = typeof b === 'string' ? b : (b.id || b.dustbin_id || '');
+                    return !filter || id.toLowerCase().includes(filter);
+                }).forEach(b => {
+                    const id  = typeof b === 'string' ? b : (b.id || b.dustbin_id || '');
+                    if (!id) return;
+                    const url = `${origin}/report?bin=${encodeURIComponent(id)}`;
+                    const card = document.createElement('div');
+                    card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;';
+                    const label = document.createElement('div');
+                    label.style.cssText = 'font-size:10px;font-weight:700;margin-bottom:6px;word-break:break-all;color:var(--text);';
+                    label.textContent = id;
+                    const qrDiv = document.createElement('div');
+                    qrDiv.style.cssText = 'display:inline-block;background:#fff;padding:4px;border-radius:6px;';
+                    const dlBtn = document.createElement('button');
+                    dlBtn.textContent = '⬇ Download';
+                    dlBtn.style.cssText = 'margin-top:6px;font-size:10px;padding:4px 8px;border:none;border-radius:6px;background:var(--accent,#6366F1);color:#fff;cursor:pointer;width:100%;';
+                    card.appendChild(label);
+                    card.appendChild(qrDiv);
+                    card.appendChild(dlBtn);
+                    grid.appendChild(card);
+                    const qr = new QRCode(qrDiv, { text: url, width: 110, height: 110, correctLevel: QRCode.CorrectLevel.M });
+                    dlBtn.onclick = function() {
+                        setTimeout(() => {
+                            const img = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
+                            if (!img) return;
+                            const src = img.tagName === 'CANVAS' ? img.toDataURL('image/png') : img.src;
+                            const a = document.createElement('a');
+                            a.href = src; a.download = id + '_qr.png'; a.click();
+                        }, 100);
+                    };
+                });
+                if (!grid.children.length) {
+                    grid.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:20px;">No bins found.</div>';
+                }
+            }).catch(() => {
+                document.getElementById('qrGrid').innerHTML = '<div style="color:var(--danger);font-size:12px;">Could not load dustbin list.</div>';
+            });
+        }
+    })();
+    </script>
 </body>
 
 </html>
