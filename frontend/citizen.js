@@ -97,6 +97,39 @@ const WS_SCHEME = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const WS_URL = `${WS_SCHEME}://${window.location.host}/ws`;
 
 let dashboard = null;
+let _dashboardLastFetch = 0;
+let _httpPollTimer = null;
+
+async function _fetchDashboardFallback() {
+    const now = Date.now();
+    if (now - _dashboardLastFetch < 5000) return;
+    _dashboardLastFetch = now;
+    try {
+        const resp = await fetch(`${API_BASE}/api/dashboard`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data || !data.timestamp) return;
+        if (!dashboard || !dashboard.timestamp || data.timestamp > dashboard.timestamp) {
+            dashboard = data;
+            updateWardStatusPanel();
+            updateRoadAlertsPanel();
+            updateAlertBadge();
+            updateStatsBar();
+        }
+    } catch (e) {
+        console.warn('[HTTP fallback] Dashboard fetch failed:', e.message);
+    }
+}
+
+function _startHttpPolling() {
+    if (_httpPollTimer) return;
+    _httpPollTimer = setInterval(_fetchDashboardFallback, 10000);
+}
+
+function _stopHttpPolling() {
+    if (_httpPollTimer) { clearInterval(_httpPollTimer); _httpPollTimer = null; }
+}
+
 let configData = null;
 
 // Map instances
@@ -137,6 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initDashMap();
     initReportFlow();
     connectWebSocket();
+    setTimeout(_fetchDashboardFallback, 800); // Seed data before first WS message
 });
 
 // ── CONFIG ──────────────────────────────────────────────────────────
@@ -1113,6 +1147,7 @@ function connectWebSocket() {
     const ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
+        _stopHttpPolling(); // WS is back, stop HTTP polling
         _wsRetries = 0;  // Reset backoff on successful connection
         statusEl.textContent = '● Live';
         statusEl.className = 'status-badge live';
@@ -1158,6 +1193,7 @@ function connectWebSocket() {
         _wsRetries++;
         const delay = Math.min(30000, 1000 * Math.pow(2, _wsRetries)) + Math.random() * 1000;
         setTimeout(connectWebSocket, delay);
+        _startHttpPolling(); // WS dropped — begin HTTP polling as fallback
     };
 
     ws.onerror = () => ws.close();

@@ -268,15 +268,25 @@
             function toggleWardModal() {
                 const modal = document.getElementById('wardStatusModal');
                 const roadModal = document.getElementById('roadAlertsModal');
-                roadModal.style.display = 'none'; // close the other
-                modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+                roadModal.style.display = 'none';
+                const opening = modal.style.display === 'none' || modal.style.display === '';
+                modal.style.display = opening ? 'block' : 'none';
+                if (opening) {
+                    if (typeof updateWardStatusPanel === 'function') updateWardStatusPanel();
+                    if (typeof _fetchDashboardFallback === 'function') _fetchDashboardFallback();
+                }
             }
 
             function toggleRoadAlertsModal() {
                 const modal = document.getElementById('roadAlertsModal');
                 const wardModal = document.getElementById('wardStatusModal');
-                wardModal.style.display = 'none'; // close the other
-                modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+                wardModal.style.display = 'none';
+                const opening = modal.style.display === 'none' || modal.style.display === '';
+                modal.style.display = opening ? 'block' : 'none';
+                if (opening) {
+                    if (typeof updateRoadAlertsPanel === 'function') updateRoadAlertsPanel();
+                    if (typeof _fetchDashboardFallback === 'function') _fetchDashboardFallback();
+                }
             }
 
             function toggleComplaintPanel() {
