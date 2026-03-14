@@ -194,3 +194,160 @@ def _fallback_advisory(segment_data):
         "resource_required": resource,
         "estimated_response_time": response_time,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CITIZEN QUERY — AI CHATBOT
+# ═══════════════════════════════════════════════════════════════════════════
+
+def answer_citizen_query(message, user_reports, cached_state):
+    """
+    Answer a citizen's natural-language complaint status query.
+    Uses user's personal report history + live Pathway cached_state.
+    Returns: {"answer": str, "speak": str (Hindi, <=2 sentences for TTS)}
+    """
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+
+    # Enrich live dustbin state into each user report
+    live_states = {}
+    for ds in cached_state.get("dustbin_states", []):
+        live_states[ds.get("dustbin_id", "")] = ds
+
+    enriched_reports = []
+    for r in (user_reports or []):
+        did = r.get("dustbin_id", "")
+        live = live_states.get(did, {})
+        enriched_reports.append({
+            **r,
+            "current_state": live.get("state", "Unknown"),
+            "current_report_count": live.get("report_count", 0),
+        })
+
+    if GEMINI_AVAILABLE and gemini_key:
+        return _citizen_gemini(message, enriched_reports, cached_state, gemini_key)
+    else:
+        return _citizen_fallback(message, enriched_reports, cached_state)
+
+
+def _citizen_gemini(message, enriched_reports, cached_state, api_key):
+    """Call Gemini for citizen chatbot response."""
+    try:
+        from datetime import datetime
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        # Build user reports section
+        reports_section = ""
+        if enriched_reports:
+            reports_section = "\nUSER'S REPORT HISTORY (most recent first):\n"
+            for r in enriched_reports[:10]:
+                reports_section += (
+                    f"  - Dustbin {r.get('dustbin_id','?')} | "
+                    f"Overflow Level: {r.get('overflow_level','?')} | "
+                    f"Reported: {r.get('timestamp','?')[:16]} | "
+                    f"Current State: {r.get('current_state','?')}\n"
+                )
+        else:
+            reports_section = "\nUser has no previous reports on record.\n"
+
+        # Build city context section
+        ward_risks = cached_state.get("ward_risks", {})
+        top_wards = sorted(ward_risks.items(), key=lambda x: x[1].get("risk", 0), reverse=True)[:3]
+        city_context = (
+            f"City Waste Index: {cached_state.get('city_waste_index', 0)}/100 | "
+            f"Rainfall: {cached_state.get('rainfall_mm_hr', 0)}mm/hr\n"
+            f"Top Risk Wards: " +
+            ", ".join(f"{w[0]} ({w[1].get('risk',0)}/100)" for w in top_wards)
+        )
+
+        prompt = f"""You are InfraWatch Nexus AI assistant for Delhi citizens.
+Today: {now_str}
+
+RULES:
+- Answer in simple Hindi OR English based on the question language.
+- Be conversational, empathetic, and specific to their data.
+- Never say 'I don't know' — use the data to give a best answer.
+- Keep answers under 3 sentences for voice readability.
+- Always mention the current_state of their dustbin if relevant.
+
+CITY STATUS:
+{city_context}
+{reports_section}
+USER QUESTION: {message}
+
+Respond ONLY in this JSON format:
+{{"answer": "<response in user's language, max 3 sentences>", "speak": "<same in simple Hindi Devanagari, max 2 sentences, TTS friendly>"}}"""
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        text = response.text
+
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            parsed = json.loads(text[start:end])
+            return {
+                "answer": parsed.get("answer", text[:300]),
+                "speak": parsed.get("speak", parsed.get("answer", text[:150])),
+            }
+        return {"answer": text[:300], "speak": text[:150]}
+    except Exception as e:
+        return _citizen_fallback(message, enriched_reports, cached_state)
+
+
+def _citizen_fallback(message, enriched_reports, cached_state):
+    """Pattern-match fallback for citizen chatbot — no Gemini key needed."""
+    msg_lower = message.lower()
+    n = len(enriched_reports)
+    waste_index = cached_state.get("city_waste_index", 0)
+
+    if any(k in msg_lower for k in ["status", "report", "complaint", "shikayat", "mera"]):
+        if enriched_reports:
+            latest = enriched_reports[0]
+            state = latest.get("current_state", "Unknown")
+            did = latest.get("dustbin_id", "?")
+            answer = (
+                f"Your most recent report is for {did}. "
+                f"Current status: {state}. "
+                f"You have {n} total report(s) on record."
+            )
+            speak = f"आपकी शिकायत {did} के लिए दर्ज है। वर्तमान स्थिति: {state}।"
+        else:
+            answer = "No reports found on your account yet. Submit a report by scanning a dustbin QR code!"
+            speak = "आपके खाते में कोई शिकायत नहीं मिली। कचरे के डिब्बे का QR स्कैन करके रिपोर्ट करें!"
+
+    elif any(k in msg_lower for k in ["when", "kab", "kitne din", "time"]):
+        priority = cached_state.get("priority_queue", [])
+        if enriched_reports and priority:
+            did = enriched_reports[0].get("dustbin_id", "")
+            pos = next((i + 1 for i, p in enumerate(priority) if p.get("id") == did), None)
+            if pos:
+                answer = f"Your dustbin {did} is #{pos} in the collection priority queue. Expect collection soon."
+                speak = f"आपका डिब्बा {did} प्राथमिकता सूची में #{pos} पर है।"
+            else:
+                answer = f"Your dustbin will be included in the next collection cycle."
+                speak = "आपके डिब्बे की सफाई जल्द होगी।"
+        else:
+            answer = "Collection scheduling depends on ward priority. High overflow bins are cleared first."
+            speak = "सफाई का समय वार्ड की प्राथमिकता पर निर्भर करता है।"
+
+    elif any(k in msg_lower for k in ["ward", "area", "zone", "ilaka"]):
+        ward_risks = cached_state.get("ward_risks", {})
+        top = sorted(ward_risks.items(), key=lambda x: x[1].get("risk", 0), reverse=True)[:3]
+        if top:
+            top_str = ", ".join(f"{w[0]} (risk: {w[1].get('risk', 0)})" for w in top)
+            answer = f"Current high-risk areas: {top_str}. City waste index is {waste_index}/100."
+            speak = f"उच्च जोखिम वाले क्षेत्र: {', '.join(w[0] for w in top[:2])}। शहर का अपशिष्ट सूचकांक {waste_index}/100 है।"
+        else:
+            answer = f"City waste index is currently {waste_index}/100."
+            speak = f"शहर का अपशिष्ट सूचकांक {waste_index}/100 है।"
+
+    else:
+        answer = (
+            f"Your {n} report(s) are being tracked by InfraWatch. "
+            f"Current city waste index: {waste_index}/100. "
+            "Ask me about your report status, collection timing, or area risk."
+        )
+        speak = f"आपकी {n} शिकायतें InfraWatch द्वारा ट्रैक की जा रही हैं। शहर का अपशिष्ट सूचकांक {waste_index}/100 है।"
+
+    return {"answer": answer, "speak": speak}

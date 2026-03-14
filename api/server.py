@@ -12,8 +12,11 @@ FastAPI transport layer. ZERO computation.
   - Admin auth via HMAC-signed bearer token
 """
 import asyncio
+import base64
+import csv
 import hashlib
 import httpx
+import io
 import json
 import os
 import re
@@ -45,9 +48,15 @@ from config.settings import SERVER_HOST, SERVER_PORT, OUTPUT_DIR, REPORT_DIR, DE
 from config.wards import WARDS, ROAD_SEGMENTS, CITY_CENTER
 from config.dustbins import DUSTBINS, get_dustbin, get_ward_dustbins, validate_dustbin_id
 from engine.auth import verify_token, generate_token
-from engine.database import init_db, insert_event, get_event_count
+from engine.database import (
+    init_db, insert_event, get_event_count,
+    insert_pending_reward, resolve_rewards_for_dustbin,
+    get_user_reward_summary, get_leaderboard, export_pending_rewards,
+    get_user_reports,
+)
 from engine.snapshot import read_dashboard_snapshot
 from engine.route_optimizer import optimize_route, optimize_all_wards
+from llm_layer.advisor import answer_citizen_query
 
 # ═══════════════════════════════════════════════════════════════════════════
 # APP SETUP
@@ -172,7 +181,9 @@ def _rebuild_dedup_cache():
 # ═══════════════════════════════════════════════════════════════════════════
 class DustbinConfirmReport(BaseModel):
     dustbin_id: str
-    overflow_level: int  # 1-5
+    overflow_level: int        # 1-5
+    reporter_upi: str = ""    # optional e.g. "user@upi" for reward disbursement
+    reporter_name: str = ""   # optional display name for leaderboard
 
 
 class RoadIssueReport(BaseModel):
@@ -188,6 +199,12 @@ class VanCollectionReport(BaseModel):
 
 class RoadClearReport(BaseModel):
     event_id: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    user_sub: str = ""   # optional — anonymous if omitted
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -211,16 +228,42 @@ def _check_admin_token(authorization):
     return verify_token(authorization)
 
 
+def _decode_jwt_sub(authorization):
+    """
+    Extract user_sub from Auth0 Bearer JWT.
+    Decodes the payload section (middle part) without signature verification.
+    Auth0 front-end has already verified the token; we just read the sub claim.
+    Returns empty string on any failure.
+    """
+    try:
+        if not authorization:
+            return ""
+        token = authorization.replace("Bearer ", "").strip()
+        parts = token.split(".")
+        if len(parts) != 3:
+            return ""
+        # Add padding for base64
+        padded = parts[1] + "==" * (4 - len(parts[1]) % 4)
+        payload = json.loads(base64.b64decode(padded).decode("utf-8"))
+        return payload.get("sub", "")
+    except Exception:
+        return ""
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # CITIZEN ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/report/dustbin/confirm")
 @limiter.limit("10/minute")
-async def confirm_dustbin_report(request: Request, report: DustbinConfirmReport):
+async def confirm_dustbin_report(
+    request: Request,
+    report: DustbinConfirmReport,
+    authorization: Optional[str] = Header(None),
+):
     """
     Citizen reports dustbin overflow (after QR scan pre-fills ID).
-    Validates against registry. Dedup check. Persists to DB.
+    Validates against registry. Dedup check. Writes event. Issues pending reward.
     """
     if not validate_dustbin_id(report.dustbin_id):
         return JSONResponse(
@@ -238,13 +281,21 @@ async def confirm_dustbin_report(request: Request, report: DustbinConfirmReport)
         })
 
     dustbin = get_dustbin(report.dustbin_id)
+    now_iso = datetime.now().isoformat()
+
+    # Extract Auth0 user_sub from JWT if present
+    user_sub = _decode_jwt_sub(authorization)
+
     event = {
         "event_id": f"WR-{uuid.uuid4().hex[:8]}",
         "dustbin_id": report.dustbin_id,
         "ward_id": dustbin["ward_id"],
         "overflow_level": overflow,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_iso,
         "source": "citizen",
+        "user_sub": user_sub,
+        "reporter_name": report.reporter_name or "Anonymous",
+        "reporter_upi": report.reporter_upi or "",
     }
 
     # Dual write: file (for Pathway) + DB (for persistence)
@@ -254,12 +305,32 @@ async def confirm_dustbin_report(request: Request, report: DustbinConfirmReport)
     except Exception as e:
         print(f"[DB] Waste event write failed: {e}")
 
+    # Issue pending reward if user is identified
+    reward_points = 0
+    if user_sub:
+        try:
+            reward = insert_pending_reward(
+                event_id=event["event_id"],
+                user_sub=user_sub,
+                reporter_name=report.reporter_name or "Anonymous",
+                reporter_upi=report.reporter_upi or "",
+                ward_id=dustbin["ward_id"],
+                dustbin_id=report.dustbin_id,
+                overflow_level=overflow,
+                reported_at=now_iso,
+            )
+            reward_points = reward["points"]
+        except Exception as e:
+            print(f"[Rewards] Failed to insert pending reward: {e}")
+
     return JSONResponse(content={
         "status": "accepted",
         "event_id": event["event_id"],
         "dustbin_id": report.dustbin_id,
         "street": dustbin["street"],
         "file": filename,
+        "overflow_level": overflow,
+        "reward_points": reward_points,
         "message": f"Report for {report.dustbin_id} ({dustbin['street']}) accepted.",
     })
 
@@ -415,6 +486,14 @@ async def report_van_collection(
         print(f"[DB] Van event write failed: {e}")
 
     _last_report.pop(report.dustbin_id, None)
+
+    # Resolve pending citizen rewards for this dustbin
+    try:
+        resolved = resolve_rewards_for_dustbin(report.dustbin_id)
+        if resolved:
+            print(f"  [Rewards] Resolved {resolved} pending reward(s) for {report.dustbin_id}")
+    except Exception as e:
+        print(f"[Rewards] resolve failed: {e}")
 
     return JSONResponse(content={
         "status": "accepted",
@@ -649,9 +728,9 @@ async def get_dustbins():
 
 
 @app.get("/api/config")
-async def get_config():
-    """Ward and dustbin config for frontend map setup. Includes Auth0 config."""
-    return JSONResponse(content={
+async def get_config(authorization: Optional[str] = Header(None)):
+    """Ward and dustbin config for frontend map setup. Returns elevenlabs keys for authed users."""
+    resp = {
         "wards": {k: {**v} for k, v in WARDS.items()},
         "dustbins": {k: {**v} for k, v in DUSTBINS.items()},
         "city_center": CITY_CENTER,
@@ -660,7 +739,14 @@ async def get_config():
             "clientId": os.getenv("AUTH0_CLIENT_ID", "JUpaLQX0981B0A1FL4yQA7dFUHImqbPU"),
             "audience": os.getenv("AUTH0_AUDIENCE", "https://infrawatch-nexus-api"),
         },
-    })
+    }
+    # Return ElevenLabs keys only to authenticated users (3-part JWT check)
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        if len(token.split(".")) == 3:
+            resp["elevenlabs_key"] = os.getenv("ELEVENLABS_API_KEY", "")
+            resp["elevenlabs_voice_id"] = os.getenv("ELEVENLABS_VOICE_ID", "56k72tYpS6hbRADdszYg")
+    return JSONResponse(content=resp)
 
 
 @app.get("/api/priority")
@@ -679,6 +765,149 @@ async def get_weather():
         "rainfall_mm_hr": cached_state.get("rainfall_mm_hr", 0),
         "timestamp": cached_state.get("timestamp"),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CIVIC REWARD SYSTEM ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/leaderboard")
+async def get_leaderboard_endpoint(month: Optional[str] = None):
+    """Public leaderboard: top 10 reporters this month by points. No UPI/sub exposed."""
+    try:
+        leaders = get_leaderboard(month)
+    except Exception as e:
+        leaders = []
+    if not leaders:
+        return JSONResponse(content={
+            "leaderboard": [],
+            "month": month or datetime.now().strftime("%Y-%m"),
+            "message": "No resolved reports this month yet",
+        })
+    return JSONResponse(content={
+        "leaderboard": leaders,
+        "month": month or datetime.now().strftime("%Y-%m"),
+        "total": len(leaders),
+    })
+
+
+@app.get("/api/rewards/my")
+@limiter.limit("30/minute")
+async def get_my_rewards(request: Request, authorization: Optional[str] = Header(None)):
+    """Auth0: Personal reward summary and history for authenticated citizen."""
+    user_sub = _decode_jwt_sub(authorization)
+    if not user_sub:
+        return JSONResponse(content={"error": "Authentication required"}, status_code=401)
+    try:
+        summary = get_user_reward_summary(user_sub)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    return JSONResponse(content=summary)
+
+
+@app.post("/api/rewards/export")
+@limiter.limit("5/minute")
+async def export_rewards_csv(request: Request, authorization: Optional[str] = Header(None)):
+    """Admin: Export all resolved rewards as CSV and mark as exported (payment queue)."""
+    if not _check_admin_token(authorization):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+    try:
+        rows = export_pending_rewards()
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    if not rows:
+        return JSONResponse(content={"message": "No pending rewards to export", "count": 0})
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=["reporter_name", "reporter_upi", "total_rupees", "report_count", "ward_id", "generated_at"]
+    )
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_str = output.getvalue()
+
+    from fastapi.responses import Response
+    return Response(
+        content=csv_str,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=infrawatch_rewards_export.csv"},
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AI CHATBOT ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/chat")
+@limiter.limit("10/minute")
+async def chat_with_ai(
+    request: Request,
+    body: ChatRequest,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    AI Chatbot: citizen queries answered by Gemini using personal report history
+    and live Pathway cached_state. Anonymous users get city-level answers only.
+    """
+    # Prefer user_sub from JWT over body field (body allows frontend to send it directly)
+    user_sub = _decode_jwt_sub(authorization) or body.user_sub
+
+    user_reports = []
+    if user_sub:
+        try:
+            user_reports = get_user_reports(user_sub, limit=20)
+        except Exception:
+            user_reports = []
+
+    try:
+        result = answer_citizen_query(
+            message=body.message,
+            user_reports=user_reports,
+            cached_state=cached_state,
+        )
+    except Exception as e:
+        result = {
+            "answer": f"I'm having trouble processing your request. City waste index: {cached_state.get('city_waste_index', 0)}/100.",
+            "speak": "अभी जवाब देने में समस्या हो रही है। कृपया दोबारा कोशिश करें।",
+        }
+
+    return JSONResponse(content=result)
+
+
+@app.get("/api/my-reports")
+@limiter.limit("30/minute")
+async def get_my_reports(request: Request, authorization: Optional[str] = Header(None)):
+    """Auth0: Get last 20 reports by this user, enriched with live dustbin state."""
+    user_sub = _decode_jwt_sub(authorization)
+    if not user_sub:
+        return JSONResponse(content={"error": "Authentication required"}, status_code=401)
+
+    try:
+        reports = get_user_reports(user_sub, limit=20)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    # Enrich with live state from Pathway
+    live_states = {ds.get("dustbin_id", ""): ds for ds in cached_state.get("dustbin_states", [])}
+    enriched = []
+    for r in reports:
+        did = r.get("dustbin_id", "")
+        live = live_states.get(did, {})
+        enriched.append({
+            **r,
+            "current_state": live.get("state", "Unknown"),
+            "current_report_count": live.get("report_count", 0),
+        })
+
+    return JSONResponse(content={
+        "reports": enriched,
+        "total": len(enriched),
+        "user_sub": user_sub,
+    })
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════

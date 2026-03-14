@@ -142,7 +142,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── CONFIG ──────────────────────────────────────────────────────────
 async function loadConfig() {
     try {
-        const resp = await fetch(`${API_BASE}/api/config`);
+        const authHdr = await _authHeaders();
+        const resp = await fetch(`${API_BASE}/api/config`, { headers: authHdr });
         configData = await resp.json();
 
         // Populate ward filter in topbar
@@ -782,6 +783,16 @@ async function submitReport(dustbinId, overflow, photoUrl) {
             showToast(`Report submitted for ${dustbinId}!`, 'success');
             addRecentReport(dustbinId);
 
+            // Reward preview badge for logged-in users
+            if (_authUser && data.reward_points) {
+                const rewardBadge = document.getElementById('rewardPreviewBadge') || _createRewardBadge();
+                rewardBadge.textContent = `🏆 +${data.reward_points} civic points earned when resolved!`;
+                rewardBadge.style.display = 'block';
+                setTimeout(() => { rewardBadge.style.display = 'none'; }, 6000);
+                // Refresh My Rewards card
+                _loadMyRewards();
+            }
+
             // ElevenLabs Hindi voice confirmation
             const speakMsg = 'आपकी शिकायत सफलतापूर्वक दर्ज हो गई!';
             if (typeof _aiSpeak === 'function') _aiSpeak(speakMsg);
@@ -1232,3 +1243,318 @@ window.addEventListener('resize', function() {
         closeSidebar();
     }
 });
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ELEVENLABS VOICE AI
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function _getElevenLabsKey() {
+    try {
+        if (configData && configData.elevenlabs_key) return configData.elevenlabs_key;
+        const authHdr = await _authHeaders();
+        const resp = await fetch(`${API_BASE}/api/config`, { headers: authHdr });
+        const cfg = await resp.json();
+        if (cfg.elevenlabs_key) {
+            if (configData) configData.elevenlabs_key = cfg.elevenlabs_key;
+            return cfg.elevenlabs_key;
+        }
+    } catch (e) { /* silent */ }
+    return '';
+}
+
+async function _aiSpeak(text) {
+    // Silently fail if no key or TTS unavailable — must not break callers
+    try {
+        const key = await _getElevenLabsKey();
+        if (!key) return;
+        const voiceId = (configData && configData.elevenlabs_voice_id) || '56k72tYpS6hbRADdszYg';
+        const resp = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+            {
+                method: 'POST',
+                headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: text,
+                    model_id: 'eleven_multilingual_v2',
+                    voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+                }),
+            }
+        );
+        if (!resp.ok) return;
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.play().catch(() => {});
+    } catch (e) {
+        console.warn('[ElevenLabs] TTS failed:', e.message);
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CIVIC REWARDS — My Rewards Card
+// ═══════════════════════════════════════════════════════════════════════════
+
+function _createRewardBadge() {
+    const badge = document.createElement('div');
+    badge.id = 'rewardPreviewBadge';
+    badge.style.cssText = [
+        'display:none', 'position:fixed', 'bottom:90px', 'right:24px',
+        'background:linear-gradient(135deg,#6366F1,#8B5CF6)',
+        'color:#fff', 'padding:10px 18px', 'border-radius:12px',
+        'font-weight:700', 'font-size:14px', 'z-index:9000',
+        'box-shadow:0 4px 20px rgba(99,102,241,0.4)',
+        'animation:fadeSlideUp 0.4s ease',
+    ].join(';');
+    document.body.appendChild(badge);
+    return badge;
+}
+
+async function _loadMyRewards() {
+    if (!_authUser) return;
+    const card = document.getElementById('myRewardsCard');
+    if (!card) return;
+    card.innerHTML = '<div style="color:#94A3B8;font-size:13px;padding:8px 0">Loading rewards...</div>';
+    try {
+        const authHdr = await _authHeaders();
+        const resp = await fetch(`${API_BASE}/api/rewards/my`, { headers: authHdr });
+        if (!resp.ok) { card.innerHTML = ''; return; }
+        const d = await resp.json();
+        const pct = Math.min(100, (d.total_points / 500) * 100).toFixed(0);
+        card.innerHTML = `
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="flex:1;min-width:80px;background:#0F172A;border-radius:8px;padding:10px;text-align:center">
+                    <div style="font-size:22px;font-weight:800;color:#6366F1">${d.total_points}</div>
+                    <div style="font-size:11px;color:#64748B">Points</div>
+                </div>
+                <div style="flex:1;min-width:80px;background:#0F172A;border-radius:8px;padding:10px;text-align:center">
+                    <div style="font-size:20px;font-weight:800;color:#10B981">₹${d.pending_rupees}</div>
+                    <div style="font-size:11px;color:#64748B">Pending</div>
+                </div>
+                <div style="flex:1;min-width:80px;background:#0F172A;border-radius:8px;padding:10px;text-align:center">
+                    <div style="font-size:20px;font-weight:800;color:#F59E0B">${d.reports_resolved}</div>
+                    <div style="font-size:11px;color:#64748B">Resolved</div>
+                </div>
+            </div>
+            <div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748B;margin-bottom:4px">
+                    <span>Level Progress</span><span>${d.total_points}/500 pts</span>
+                </div>
+                <div style="background:#1E293B;border-radius:4px;height:6px;overflow:hidden">
+                    <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#6366F1,#8B5CF6);transition:width 0.5s ease"></div>
+                </div>
+            </div>
+            ${d.reward_history.length ? `
+            <div style="font-size:12px;color:#64748B;margin-bottom:6px">Recent Resolved Reports</div>
+            ${d.reward_history.slice(0, 5).map(h => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1E293B;font-size:12px">
+                    <span style="color:#CBD5E1">${h.dustbin_id} (lvl ${h.overflow_level})</span>
+                    <span style="color:#10B981;font-weight:700">+${h.points}pts / ₹${h.rupees}</span>
+                </div>
+            `).join('')}` : '<div style="color:#64748B;font-size:12px">No resolved reports yet. Keep reporting!</div>'}
+        `;
+    } catch (e) {
+        card.innerHTML = '<div style="color:#64748B;font-size:12px">Could not load rewards data.</div>';
+    }
+}
+
+function _initRewardsCard() {
+    if (!_authUser) return;
+    // Find the report section to inject after it
+    const reportSection = document.getElementById('reportSection') || document.querySelector('.report-section') || document.querySelector('[data-section="report"]');
+    if (!reportSection) return;
+    if (document.getElementById('myRewardsSection')) return;  // Guard
+
+    const section = document.createElement('div');
+    section.id = 'myRewardsSection';
+    section.style.cssText = 'margin-top:16px;background:#1A2332;border-radius:12px;overflow:hidden;border:1px solid #2D3748';
+    section.innerHTML = `
+        <div onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.rw-chevron').textContent=this.nextElementSibling.classList.contains('hidden')?'▶':'▼'"
+            style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+            <span style="font-weight:700;color:#E2E8F0;font-size:14px">🏆 My Civic Rewards</span>
+            <span class="rw-chevron" style="color:#6366F1;font-size:12px">▶</span>
+        </div>
+        <div class="hidden" style="padding:0 16px 16px 16px">
+            <div id="myRewardsCard"></div>
+        </div>
+    `;
+    reportSection.after(section);
+    _loadMyRewards();
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI CHATBOT WIDGET
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _chatHistory = [];
+let _lastReplayText = '';
+
+function _initChatbot() {
+    // Guard: only inject once
+    if (document.getElementById('infraChatBtn')) return;
+
+    // Floating button
+    const btn = document.createElement('button');
+    btn.id = 'infraChatBtn';
+    btn.textContent = '🤖';
+    btn.title = 'InfraWatch AI Assistant';
+    btn.style.cssText = [
+        'position:fixed', 'bottom:24px', 'right:24px', 'z-index:9100',
+        'width:52px', 'height:52px', 'border-radius:50%', 'border:none',
+        'background:linear-gradient(135deg,#6366F1,#8B5CF6)',
+        'color:#fff', 'font-size:22px', 'cursor:pointer',
+        'box-shadow:0 4px 20px rgba(99,102,241,0.5)',
+        'display:none',   // Hidden until auth check
+        'align-items:center', 'justify-content:center',
+        'transition:transform 0.2s ease',
+    ].join(';');
+    btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.1)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1.0)'; });
+
+    // Panel
+    const panel = document.createElement('div');
+    panel.id = 'infraChatPanel';
+    panel.style.cssText = [
+        'position:fixed', 'bottom:86px', 'right:24px', 'z-index:9100',
+        'width:320px', 'max-height:480px', 'display:none', 'flex-direction:column',
+        'background:#0F172A', 'border:1px solid #2D3748', 'border-radius:16px',
+        'overflow:hidden', 'box-shadow:0 8px 40px rgba(0,0,0,0.5)',
+        'font-family:Inter,sans-serif',
+    ].join(';');
+    panel.innerHTML = `
+        <div style="background:linear-gradient(135deg,#6366F1,#8B5CF6);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-weight:700;color:#fff;font-size:14px">🤖 InfraWatch AI</span>
+            <button id="infraChatClose" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1">×</button>
+        </div>
+        <div id="infraChatHistory" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:200px;max-height:300px"></div>
+        <div style="padding:8px;border-top:1px solid #1E293B;display:flex;gap:6px">
+            <input id="infraChatInput" type="text" placeholder="Ask about your reports..." style="flex:1;background:#1E293B;border:1px solid #374151;border-radius:8px;padding:8px 10px;color:#E2E8F0;font-size:13px;outline:none"/>
+            <button id="infraChatSend" style="background:#6366F1;border:none;border-radius:8px;padding:8px 12px;color:#fff;cursor:pointer;font-weight:700">➤</button>
+            <button id="infraChatReplay" title="Replay last response" style="background:#1E293B;border:1px solid #374151;border-radius:8px;padding:8px 10px;color:#94A3B8;cursor:pointer">🔊</button>
+        </div>
+    `;
+    document.body.appendChild(btn);
+    document.body.appendChild(panel);
+
+    // Show/hide panel
+    btn.addEventListener('click', () => {
+        const showing = panel.style.display === 'flex';
+        panel.style.display = showing ? 'none' : 'flex';
+        if (!showing && _chatHistory.length === 0) _chatSendWelcome();
+    });
+    document.getElementById('infraChatClose').addEventListener('click', () => { panel.style.display = 'none'; });
+
+    // Send on button click or Enter
+    document.getElementById('infraChatSend').addEventListener('click', _chatSend);
+    document.getElementById('infraChatInput').addEventListener('keydown', e => { if (e.key === 'Enter') _chatSend(); });
+
+    // Voice replay
+    document.getElementById('infraChatReplay').addEventListener('click', () => {
+        if (_lastReplayText) _aiSpeak(_lastReplayText);
+    });
+
+    // Show button when logged in
+    if (_authUser) { btn.style.display = 'flex'; }
+
+    // Watch for auth changes
+    window.addEventListener('infrawatch:auth', () => {
+        btn.style.display = _authUser ? 'flex' : 'none';
+    });
+}
+
+function _appendChatBubble(text, isUser) {
+    const history = document.getElementById('infraChatHistory');
+    if (!history) return;
+    const bubble = document.createElement('div');
+    bubble.style.cssText = [
+        `align-self:${isUser ? 'flex-end' : 'flex-start'}`,
+        `background:${isUser ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : '#1E293B'}`,
+        'color:#E2E8F0', 'padding:8px 12px', 'border-radius:12px',
+        `border-radius:${isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px'}`,
+        'max-width:85%', 'font-size:13px', 'line-height:1.5',
+        'white-space:pre-wrap', 'word-break:break-word',
+    ].join(';');
+    bubble.textContent = text;
+    history.appendChild(bubble);
+    history.scrollTop = history.scrollHeight;
+}
+
+function _showChatTyping() {
+    const history = document.getElementById('infraChatHistory');
+    if (!history) return;
+    const typing = document.createElement('div');
+    typing.id = 'infraChatTyping';
+    typing.style.cssText = 'align-self:flex-start;background:#1E293B;border-radius:12px 12px 12px 2px;padding:10px 14px;color:#94A3B8;font-size:20px;letter-spacing:4px';
+    typing.textContent = '···';
+    typing.style.animation = 'pulse 1.2s ease infinite';
+    history.appendChild(typing);
+    history.scrollTop = history.scrollHeight;
+    return typing;
+}
+
+function _chatSendWelcome() {
+    const name = (_authUser && (_authUser.name || _authUser.email || '').split('@')[0]) || 'Citizen';
+    const welcome = `नमस्ते ${name}! मैं InfraWatch AI हूँ। आप अपनी शिकायतों का status पूछ सकते हैं।\n\nHi ${name}! Ask me about your reports or city conditions.`;
+    _appendChatBubble(welcome, false);
+    _lastReplayText = welcome;
+}
+
+async function _chatSend() {
+    const input = document.getElementById('infraChatInput');
+    if (!input) return;
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+
+    _appendChatBubble(msg, true);
+    _chatHistory.push({ role: 'user', text: msg });
+
+    const typing = _showChatTyping();
+
+    try {
+        const authHdr = await _authHeaders();
+        const body = { message: msg, user_sub: _authUser ? _authUser.sub : '' };
+        const resp = await fetch(`${API_BASE}/api/chat`, {
+            method: 'POST',
+            headers: { ...authHdr, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (typing) typing.remove();
+
+        if (resp.ok) {
+            const data = await resp.json();
+            const answer = data.answer || 'Sorry, I could not process that.';
+            _appendChatBubble(answer, false);
+            _chatHistory.push({ role: 'ai', text: answer });
+            if (data.speak) {
+                _lastReplayText = data.speak;
+                _aiSpeak(data.speak);
+            }
+        } else {
+            _appendChatBubble('Service temporarily unavailable. Please try again.', false);
+        }
+    } catch (e) {
+        if (typing) typing.remove();
+        _appendChatBubble('Network error. Check your connection.', false);
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT: Wire up rewards + chatbot after Auth0 loads
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Hook into DOMContentLoaded to init widgets after auth state is known
+document.addEventListener('DOMContentLoaded', () => {
+    // Delay slightly so _authUser is populated after _initAuth0 resolves
+    setTimeout(() => {
+        _initChatbot();
+        if (_authUser) {
+            _initRewardsCard();
+        }
+    }, 2000);
+});
+
