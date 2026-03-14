@@ -26,24 +26,37 @@ echo "  Dependencies: OK"
 
 # ── 3. Check .env ────────────────────────────────────
 if [ ! -f ".env" ]; then
-    echo "  WARNING: .env not found. Creating template..."
-    cat > .env << 'EOF'
+    echo "  WARNING: .env not found. Generating secure defaults..."
+    # Generate a cryptographically random admin token — not a known default!
+    ADMIN_TOKEN=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    cat > .env << EOF
 WX_API_KEY=
 GEMINI_API_KEY=
-ADMIN_TOKEN=INFRAWATCH_ADMIN_2026
+ADMIN_TOKEN=${ADMIN_TOKEN}
 EOF
+    echo ""
+    echo "  ┌────────────────────────────────────────────────────────────────┐"
+    echo "  │  IMPORTANT: Your auto-generated admin token is:               │"
+    echo "  │  ${ADMIN_TOKEN}  │"
+    echo "  │  Save this — it is NOT stored anywhere else.                  │"
+    echo "  └────────────────────────────────────────────────────────────────┘"
+    echo ""
 fi
 
 # ── 4. Create data dirs ──────────────────────────────
 mkdir -p data/reports/waste data/reports/road data/reports/vans data/reports/weather data/output
 echo "  Data directories: OK"
 
-# ── 5. Start Pathway engine in background ────────────
+# ── 5. Start Pathway engine (with crash-restart loop) ─
 echo ""
-echo "  ▶ Starting Pathway engine..."
-python pathway_engine.py &
-PATHWAY_PID=$!
-echo "  Pathway PID: $PATHWAY_PID"
+echo "  ▶ Starting Pathway engine (auto-restart on crash)..."
+while true; do
+    python pathway_engine.py
+    echo "  Pathway crashed — restarting in 5s..."
+    sleep 5
+done &
+PATHWAY_LOOP_PID=$!
+echo "  Pathway loop PID: $PATHWAY_LOOP_PID"
 
 # Give Pathway 3 seconds to write initial snapshot
 sleep 3
@@ -62,7 +75,9 @@ echo "════════════════════════�
 cleanup() {
     echo ""
     echo "  Stopping services..."
-    kill $PATHWAY_PID 2>/dev/null || true
+    kill $PATHWAY_LOOP_PID 2>/dev/null || true
+    # Kill any child python pathway_engine.py processes too
+    pkill -f pathway_engine.py 2>/dev/null || true
     exit 0
 }
 trap cleanup INT TERM

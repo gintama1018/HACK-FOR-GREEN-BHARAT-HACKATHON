@@ -13,7 +13,9 @@ let configData = null;
 let map = null;
 let markers = {};
 let roadLines = [];
-let authToken = localStorage.getItem('infrawatch_admin_token') || '';
+// sessionStorage: token lost on tab close — XSS cannot persist it across sessions
+let authToken = sessionStorage.getItem('infrawatch_admin_token') || '';
+let _wsRetries = 0;
 let roadSeverity = 3;
 let ws = null;
 
@@ -32,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btnAuth').addEventListener('click', handleAuth);
     document.getElementById('authTokenInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth(); });
     document.getElementById('btnLogout').addEventListener('click', () => {
-        localStorage.removeItem('infrawatch_admin_token');
+        sessionStorage.removeItem('infrawatch_admin_token');
         authToken = '';
         document.getElementById('authOverlay').classList.remove('hidden');
     });
@@ -77,7 +79,7 @@ function handleAuth() {
     const input = document.getElementById('authTokenInput').value.trim();
     if (!input) { document.getElementById('authError').textContent = 'Token required.'; return; }
     authToken = input;
-    localStorage.setItem('infrawatch_admin_token', authToken);
+    sessionStorage.setItem('infrawatch_admin_token', authToken);
     document.getElementById('authOverlay').classList.add('hidden');
     bootstrap();
 }
@@ -500,10 +502,18 @@ function connectWebSocket() {
         populateClearDropdowns(); // Update the CLEAR ISSUES dropdowns dynamically
     };
 
+    ws.onopen = () => {
+        _wsRetries = 0;  // Reset backoff on successful connection
+        statusEl.textContent = '● CONNECTED';
+        statusEl.className = 'badge live';
+    };
+
     ws.onclose = () => {
         statusEl.textContent = '● OFFLINE';
         statusEl.className = 'badge dead';
-        setTimeout(connectWebSocket, 4000);
+        _wsRetries++;
+        const delay = Math.min(30000, 1000 * Math.pow(2, _wsRetries)) + Math.random() * 1000;
+        setTimeout(connectWebSocket, delay);
     };
     ws.onerror = () => ws.close();
 }

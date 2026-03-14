@@ -41,9 +41,9 @@ def verify_token(token):
 
     token = token.replace("Bearer ", "").strip()
 
-    # Legacy: accept raw ADMIN_TOKEN or demotoken123 for backward compat
+    # Legacy: accept raw ADMIN_TOKEN for backward compat (HMAC preferred)
     legacy_token = os.getenv("ADMIN_TOKEN", "INFRAWATCH_ADMIN_2026")
-    if token in [legacy_token, "demotoken123"]:
+    if token == legacy_token:
         return True
 
     # HMAC verification

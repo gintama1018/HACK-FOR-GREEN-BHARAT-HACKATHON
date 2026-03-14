@@ -13,6 +13,7 @@ FastAPI transport layer. ZERO computation.
 """
 import asyncio
 import hashlib
+import httpx
 import json
 import os
 import re
@@ -57,13 +58,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS
+_cors_default = "https://infrawatch-nexus-tnlf.onrender.com,http://localhost:8000,http://127.0.0.1:8000"
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", _cors_default).split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://infrawatch-nexus-tnlf.onrender.com",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
+    allow_origins=_cors_origins,
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type"],
 )
@@ -270,7 +269,9 @@ async def confirm_dustbin_report(request: Request, report: DustbinConfirmReport)
 # ═══════════════════════════════════════════════════════════════════════════
 
 @app.post("/api/report/road-issue")
+@limiter.limit("20/minute")
 async def report_road_issue(
+    request: Request,
     report: RoadIssueReport,
     authorization: Optional[str] = Header(None),
 ):
@@ -329,7 +330,8 @@ async def report_road_issue(
 
 
 @app.post("/api/demo/simulate-crisis")
-async def simulate_crisis(authorization: Optional[str] = Header(None)):
+@limiter.limit("3/minute")
+async def simulate_crisis(request: Request, authorization: Optional[str] = Header(None)):
     """Demo Mode: Injects synthetic reports to trigger escalation."""
     if not _check_admin_token(authorization):
         return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
@@ -380,7 +382,9 @@ async def simulate_crisis(authorization: Optional[str] = Header(None)):
 
 
 @app.post("/api/van/collection")
+@limiter.limit("30/minute")
 async def report_van_collection(
+    request: Request,
     report: VanCollectionReport,
     authorization: Optional[str] = Header(None),
 ):
@@ -422,7 +426,9 @@ async def report_van_collection(
 
 
 @app.post("/api/van/clear-road")
+@limiter.limit("20/minute")
 async def report_road_cleared(
+    request: Request,
     report: RoadClearReport,
     authorization: Optional[str] = Header(None),
 ):
@@ -549,18 +555,18 @@ async def health_check():
 @app.get("/api/forecast")
 async def get_risk_forecast():
     """Predictive Risk Forecast: 3-day ward-level risk projection."""
-    import requests as req
     wx_key = os.getenv("WX_API_KEY", "")
     forecast_data = []
 
     try:
-        resp = req.get(
-            "http://api.weatherapi.com/v1/forecast.json",
-            params={"key": wx_key, "q": "Delhi", "days": 3, "aqi": "no"},
-            timeout=8,
-        )
-        resp.raise_for_status()
-        days = resp.json().get("forecast", {}).get("forecastday", [])
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "http://api.weatherapi.com/v1/forecast.json",
+                params={"key": wx_key, "q": "Delhi", "days": 3, "aqi": "no"},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            days = resp.json().get("forecast", {}).get("forecastday", [])
     except Exception:
         days = []
 

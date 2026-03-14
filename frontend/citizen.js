@@ -1095,11 +1095,14 @@ function processStateChanges(newDashboard) {
 }
 
 // ── WEBSOCKET ───────────────────────────────────────────────────────
+let _wsRetries = 0;  // module-scope: persists across reconnect calls
 function connectWebSocket() {
     const statusEl = document.getElementById('wsStatus');
+
     const ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
+        _wsRetries = 0;  // Reset backoff on successful connection
         statusEl.textContent = '● Live';
         statusEl.className = 'status-badge live';
         const diagEl = document.getElementById('settingsWsStatus');
@@ -1141,7 +1144,9 @@ function connectWebSocket() {
     ws.onclose = () => {
         statusEl.textContent = '● Offline';
         statusEl.className = 'status-badge dead';
-        setTimeout(connectWebSocket, 4000);
+        _wsRetries++;
+        const delay = Math.min(30000, 1000 * Math.pow(2, _wsRetries)) + Math.random() * 1000;
+        setTimeout(connectWebSocket, delay);
     };
 
     ws.onerror = () => ws.close();

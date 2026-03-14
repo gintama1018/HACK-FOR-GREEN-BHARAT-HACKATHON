@@ -61,7 +61,7 @@ STATE_BANDS = [
     {"min": 76, "max": 100, "label": "Critical",  "color": "#DC2626"},
 ]
 
-HYSTERESIS_BUFFER = 10
+HYSTERESIS_BUFFER = 2   # was 10 — buffer must be < min(min_reports) = 5
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ROLLING WINDOW DURATIONS

@@ -252,10 +252,10 @@ def test_find_nearby():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_auth_legacy_token():
-    """Legacy ADMIN_TOKEN should still work."""
+    """Legacy ADMIN_TOKEN should still work. demotoken123 backdoor removed (security fix #2)."""
     from engine.auth import verify_token
     assert verify_token("INFRAWATCH_ADMIN_2026") is True
-    assert verify_token("demotoken123") is True
+    assert verify_token("demotoken123") is False   # Backdoor removed — must reject
     assert verify_token("wrong_token") is False
 
 
