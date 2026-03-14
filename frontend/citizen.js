@@ -56,6 +56,8 @@ function _renderAuthBtn(loggedIn) {
         btn.style.background = '#0F172A';
         btn.title = 'Login with Auth0';
     }
+    // Notify all listeners that auth state changed
+    window.dispatchEvent(new CustomEvent('infrawatch:auth', { detail: { loggedIn: loggedIn } }));
 }
 
 async function handleAuthClick() {
@@ -477,6 +479,38 @@ function updateWardStatusPanel() {
             <span class="ward-score" style="color:${w.color}">${w.risk_score}</span>
         </div>
     `).join('');
+}
+
+async function loadLeaderboard() {
+    const container = document.getElementById('leaderboardList');
+    if (!container) return;
+    container.innerHTML = '<div style="color:#64748B;font-size:13px;text-align:center;padding:16px;">Loading...</div>';
+    try {
+        const resp = await fetch(`${API_BASE}/api/leaderboard`);
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+        const leaders = data.leaderboard || [];
+        if (!leaders.length) {
+            container.innerHTML = '<div style="color:#64748B;font-size:13px;text-align:center;padding:16px;">No reporters yet. Be the first!</div>';
+            return;
+        }
+        const medals = ['\uD83E\uDD47','\uD83E\uDD48','\uD83E\uDD49'];
+        container.innerHTML = leaders.map((l, i) => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:${i===0?'rgba(99,102,241,0.08)':'#F8FAFC'};border-radius:12px;border:1px solid ${i===0?'rgba(99,102,241,0.2)':'#E2E8F0'}">
+                <span style="font-size:22px;min-width:28px">${medals[i] || `#${i+1}`}</span>
+                <div style="flex:1">
+                    <div style="font-weight:700;font-size:13px;color:#0F172A">${l.reporter_name || 'Anonymous'}</div>
+                    <div style="font-size:11px;color:#64748B">${l.report_count} reports resolved</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-weight:800;font-size:14px;color:#6366F1">${l.total_points} pts</div>
+                    <div style="font-size:11px;color:#10B981;font-weight:600">\u20B9${l.total_rupees}</div>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<div style="color:#64748B;font-size:13px;text-align:center;padding:16px;">Could not load leaderboard.</div>';
+    }
 }
 
 function updateRoadAlertsPanel() {
@@ -1405,7 +1439,7 @@ async function _loadMyRewards() {
 function _initRewardsCard() {
     if (!_authUser) return;
     // Find the report section to inject after it
-    const reportSection = document.getElementById('reportSection') || document.querySelector('.report-section') || document.querySelector('[data-section="report"]');
+    const reportSection = document.getElementById('ptab-report');
     if (!reportSection) return;
     if (document.getElementById('myRewardsSection')) return;  // Guard
 
