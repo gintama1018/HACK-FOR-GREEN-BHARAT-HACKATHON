@@ -17,61 +17,12 @@ let authToken = localStorage.getItem('infrawatch_admin_token') || '';
 let roadSeverity = 3;
 let ws = null;
 
-// Route cache to avoid redundant OSRM API calls
+// Route cache + OSRM routing provided by shared.js:
+//   InfraRoute.fetchRoadPath(ri), InfraRoute.fetchMultiRoutes(ri)
 const routeCache = {};
 const multiRouteCache = {};
-
-// Multi-route fetch: gets main + alternative routes from OSRM
-async function fetchMultiRoutes(ri) {
-    const cacheKey = `multi-${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
-    if (multiRouteCache[cacheKey]) return multiRouteCache[cacheKey];
-
-    try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=true`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(2000) });
-        const data = await resp.json();
-
-        if (data.routes && data.routes.length > 0) {
-            const routes = data.routes.map(route => ({
-                coords: route.geometry.coordinates.map(c => [c[1], c[0]]),
-                distance: route.distance,
-                duration: route.duration
-            }));
-            multiRouteCache[cacheKey] = routes;
-            return routes;
-        }
-    } catch (e) {
-        console.warn('OSRM multi-route fallback active:', e.message);
-    }
-
-    const fallback = [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
-    multiRouteCache[cacheKey] = fallback;
-    return fallback;
-}
-
-// Single-route fetch (used by zoomToItem highlight)
-async function fetchRoadPath(ri) {
-    const cacheKey = `${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
-    if (routeCache[cacheKey]) return routeCache[cacheKey];
-
-    try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(2000) });
-        const data = await resp.json();
-
-        if (data.routes && data.routes.length > 0) {
-            const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            routeCache[cacheKey] = coords;
-            return coords;
-        }
-    } catch (e) {
-        console.warn('OSRM routing fallback active:', e.message);
-    }
-
-    const fallback = [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
-    routeCache[cacheKey] = fallback;
-    return fallback;
-}
+async function fetchMultiRoutes(ri) { return InfraRoute.fetchMultiRoutes(ri); }
+async function fetchRoadPath(ri) { return InfraRoute.fetchRoadPath(ri); }
 
 // ── INIT ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -187,35 +138,8 @@ function initTabs() {
 }
 
 // ── MAP ─────────────────────────────────────────────────────────────
-function getMarkerStateClass(state) {
-    switch (state?.toLowerCase()) {
-        case 'critical': return 'marker-critical';
-        case 'escalated': return 'marker-escalated';
-        case 'reported': return 'marker-reported';
-        case 'cleared': return 'marker-cleared';
-        default: return 'marker-clear';
-    }
-}
-
-function getMarkerSize(state) {
-    switch (state?.toLowerCase()) {
-        case 'critical': return 'marker-xl';
-        case 'escalated': return 'marker-lg';
-        case 'reported': return 'marker-md';
-        default: return 'marker-sm';
-    }
-}
-
-function createDivIcon(stateClass, sizeClass) {
-    const size = sizeClass === 'marker-xl' ? 42 : sizeClass === 'marker-lg' ? 34 : sizeClass === 'marker-md' ? 28 : 22;
-    return L.divIcon({
-        className: '',
-        html: `<div class="marker-icon ${stateClass} ${sizeClass}">🗑️</div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -size / 2]
-    });
-}
+// Marker helpers provided by shared.js:
+//   getMarkerStateClass(state), getMarkerSize(state), createDivIcon(stateClass, sizeClass)
 
 function initMap() {
     if (map) return;
@@ -440,16 +364,40 @@ function renderQueue() {
 
     if (queue.length === 0) { list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;">Queue Clear</div>'; return; }
 
-    list.innerHTML = queue.map((q, i) => `
-        <div class="queue-row" style="cursor:pointer;" onclick="zoomToItem(${i})" title="Click to zoom to location">
+    list.innerHTML = queue.map((q, i) => {
+        const aiBadge = (q.type === 'waste' && q.ai_verified_count > 0)
+            ? `<span style="background:#DCFCE7;color:#15803D;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:700;margin-left:4px;">\ud83e\udde0 AI ${Math.round((q.ai_avg_confidence||0)*100)}%</span>`
+            : '';
+        const escalateBtn = (q.type === 'waste')
+            ? `<button onclick="escalateWhatsApp(event,'${q.id}')" title="Escalate via WhatsApp" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);color:#25D166;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;cursor:pointer;margin-left:4px;">🚨 WA</button>`
+            : '';
+        return `<div class="queue-row" style="cursor:pointer;" onclick="zoomToItem(${i})" title="Click to zoom to location">
             <div class="q-rank">#${i + 1}</div>
             <div class="q-info">
-                <div class="q-id">${q.type === 'waste' ? '🗑️' : '🚧'} ${q.name}</div>
-                <div class="q-sub" style="color:${q.color}">${q.state} • ${q.ward_id} • <span style="font-size:9px;opacity:0.6;">📍 click to locate</span></div>
+                <div class="q-id">${q.type === 'waste' ? '\ud83d\uddd1\ufe0f' : '\ud83d\udea7'} ${q.name}${aiBadge}${escalateBtn}</div>
+                <div class="q-sub" style="color:${q.color}">${q.state} \u2022 ${q.ward_id} \u2022 <span style="font-size:9px;opacity:0.6;">\ud83d\udccd click to locate</span></div>
             </div>
             <div class="q-score" style="color:${q.color}">${q.risk_score}</div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
+}
+
+async function escalateWhatsApp(evt, dustbinId) {
+    evt.stopPropagation();
+    const token = localStorage.getItem('adminToken') || '';
+    try {
+        const resp = await fetch(`${API_BASE}/api/whatsapp-escalate/${encodeURIComponent(dustbinId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await resp.json();
+        if (resp.ok && data.wa_link) {
+            window.open(data.wa_link, '_blank');
+        } else {
+            showToast(data.error || 'Escalation failed', 'error');
+        }
+    } catch (e) {
+        showToast('Network error', 'error');
+    }
 }
 
 function zoomToItem(index) {
@@ -571,6 +519,120 @@ function showToast(msg, type = 'info') {
     setTimeout(() => t.remove(), 4000);
 }
 
+// ── AI WASTE HEATMAP ──────────────────────────────────────────────
+async function renderAIHeatmap() {
+    const chartEl   = document.getElementById('aiWasteChart');
+    const summaryEl = document.getElementById('aiSummaryBar');
+    const recentEl  = document.getElementById('aiRecentList');
+    if (!chartEl) return;
+
+    let events = [];
+    try {
+        const r = await fetch(`${API_BASE}/api/waste-events`);
+        events = await r.json();
+    } catch (e) {
+        chartEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:12px;">Failed to load AI data.</div>';
+        return;
+    }
+
+    // Filter reports that have YOLO data
+    const aiReports  = events.filter(e => e.ai_verified !== undefined);
+    const verified   = aiReports.filter(e => e.ai_verified === true);
+    const confidence = verified.length ? (verified.reduce((s, e) => s + (e.yolo_confidence || 0), 0) / verified.length * 100).toFixed(0) : 0;
+
+    // Summary stats bar
+    summaryEl.innerHTML = [
+        { label: 'AI Reports',   value: aiReports.length,  color: '#6366F1' },
+        { label: 'Verified',     value: verified.length,   color: '#22C55E' },
+        { label: 'Avg Conf.',    value: `${confidence}%`,  color: '#F59E0B' },
+        { label: 'False Positives', value: aiReports.length - verified.length, color: '#EF4444' },
+    ].map(s => `<div style="flex:1;min-width:70px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;text-align:center;">
+        <div style="font-size:18px;font-weight:800;color:${s.color};">${s.value}</div>
+        <div style="font-size:9px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;">${s.label}</div>
+    </div>`).join('');
+
+    // Aggregate detected_objects across all AI reports → class counts
+    const classCounts = {};
+    for (const e of verified) {
+        for (const cls of (e.detected_objects || [])) {
+            classCounts[cls] = (classCounts[cls] || 0) + 1;
+        }
+    }
+
+    // Ward-level AI confidence heatmap
+    const wardAI = {};   // ward_id → { count, totalConf, classes: {} }
+    for (const e of aiReports) {
+        const wid = e.ward_id || 'Unknown';
+        if (!wardAI[wid]) wardAI[wid] = { count: 0, totalConf: 0, classes: {} };
+        wardAI[wid].count++;
+        wardAI[wid].totalConf += e.yolo_confidence || 0;
+        for (const cls of (e.detected_objects || [])) {
+            wardAI[wid].classes[cls] = (wardAI[wid].classes[cls] || 0) + 1;
+        }
+    }
+
+    const sortedWards = Object.entries(wardAI).sort((a, b) => b[1].count - a[1].count);
+
+    if (sortedWards.length === 0) {
+        chartEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:20px;text-align:center;">
+            No AI-verified reports yet.<br>Submit a report with a photo to see the heatmap.
+        </div>`;
+    } else {
+        const maxCount = Math.max(...sortedWards.map(([,v]) => v.count));
+        chartEl.innerHTML = sortedWards.map(([wid, v]) => {
+            const avgConf = v.count ? (v.totalConf / v.count * 100).toFixed(0) : 0;
+            const barW    = Math.max(4, Math.round(v.count / maxCount * 100));
+            const topClasses = Object.entries(v.classes).sort((a,b) => b[1]-a[1]).slice(0,3)
+                .map(([c,n]) => `<span style="background:rgba(239,68,68,0.15);color:#EF4444;border-radius:4px;padding:1px 5px;font-size:9px;">${c}×${n}</span>`).join('');
+            return `<div style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <span style="font-size:11px;font-weight:600;">${wid}</span>
+                    <span style="font-size:10px;color:var(--text-muted);">${v.count} reports · ${avgConf}% avg conf</span>
+                </div>
+                <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+                    <div style="width:${barW}%;height:100%;background:linear-gradient(90deg,#6366F1,#EF4444);border-radius:4px;transition:width 0.6s;"></div>
+                </div>
+                <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;">${topClasses}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // Object type frequency chart
+    const sortedClasses = Object.entries(classCounts).sort((a,b) => b[1]-a[1]).slice(0,10);
+    if (sortedClasses.length > 0) {
+        const maxC = sortedClasses[0][1];
+        chartEl.innerHTML += `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Detected Waste Types</div>
+            ${sortedClasses.map(([cls,n]) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                <span style="width:80px;font-size:10px;text-align:right;color:var(--text-muted);">${cls}</span>
+                <div style="flex:1;background:var(--border);border-radius:3px;height:6px;">
+                    <div style="width:${Math.round(n/maxC*100)}%;height:100%;background:#6366F1;border-radius:3px;"></div>
+                </div>
+                <span style="font-size:10px;font-weight:700;width:20px;">${n}</span>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    // Recent AI-verified list
+    const recent = [...aiReports].reverse().slice(0, 8);
+    recentEl.innerHTML = recent.length === 0
+        ? '<div style="font-size:11px;color:var(--text-muted);padding:8px;">No entries yet.</div>'
+        : recent.map(e => {
+            const badge = e.ai_verified
+                ? `<span style="background:#DCFCE7;color:#15803D;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;">✔ Verified</span>`
+                : `<span style="background:#FEE2E2;color:#B91C1C;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;">✘ No Waste</span>`;
+            const conf = e.yolo_confidence != null ? ` ${Math.round(e.yolo_confidence*100)}%` : '';
+            const objs = (e.detected_objects || []).join(', ');
+            return `<div style="display:flex;flex-direction:column;gap:2px;padding:6px 0;border-bottom:1px solid var(--border);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:11px;font-weight:600;">${e.dustbin_id}</span>
+                    <span style="display:flex;gap:4px;align-items:center;">${badge}<span style="font-size:10px;color:var(--text-muted);">${conf}</span></span>
+                </div>
+                ${objs ? `<div style="font-size:9px;color:#6366F1;">\ud83c\udff7 ${objs}</div>` : ''}
+            </div>`;
+        }).join('');
+}
+
 // ── PREDICTIVE RISK FORECAST ───────────────────────────────────────
 async function loadForecast() {
     const container = document.getElementById('forecastContainer');
@@ -624,5 +686,38 @@ async function loadForecast() {
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btnLoadForecast');
     if (btn) btn.addEventListener('click', loadForecast);
+
+    const rtiBtn = document.getElementById('btnLoadRTI');
+    if (rtiBtn) rtiBtn.addEventListener('click', loadRTIAdmin);
 });
+
+// ── RTI ADMIN LIST ──────────────────────────────────────────────────────
+async function loadRTIAdmin() {
+    const el = document.getElementById('rtiAdminList');
+    if (!el) return;
+    el.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted);">Loading…</div>';
+    try {
+        const r = await fetch(`${API_BASE}/api/rti`);
+        const rtis = await r.json();
+        if (!rtis.length) {
+            el.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text-muted);">No RTI drafts yet.<br>They auto-appear when critical alerts remain unresolved &gt;72h.</div>';
+            return;
+        }
+        el.innerHTML = rtis.map(ri => {
+            const d = ri.rti_data || {};
+            const dateStr = (ri.generated_at || '').slice(0,16).replace('T', ' ');
+            return `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:10px;font-weight:700;color:var(--accent);font-family:monospace;">${ri.rti_id}</span>
+                    <span style="font-size:10px;color:var(--text-muted);">${dateStr}</span>
+                </div>
+                <div style="font-size:11px;font-weight:600;margin-bottom:4px;">${d.subject || 'RTI Draft'}</div>
+                <div style="font-size:10px;color:var(--text-muted);">Dustbin: ${ri.dustbin_id || '—'} · Ward: ${ri.ward_id || '—'}</div>
+                <a href="/transparency" target="_blank" style="display:inline-block;margin-top:8px;font-size:10px;color:var(--accent);text-decoration:none;">View on transparency portal ↗</a>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        el.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--danger);">Failed to load RTI data.</div>';
+    }
+}
 

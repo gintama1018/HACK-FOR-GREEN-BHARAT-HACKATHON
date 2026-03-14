@@ -698,12 +698,22 @@ def _cache_updater():
 
 @app.websocket("/ws")
 async def websocket_stream(websocket: WebSocket):
-    """Push state to connected clients. Full state on connect, then diffs."""
+    """
+    Push state to connected clients. Full state on connect, then diffs.
+    Accepts optional token via query param: /ws?token=<admin_token>
+    Unauthenticated clients get read-only access (no admin data).
+    """
+    # Optional token auth via query params
+    token = websocket.query_params.get("token", "")
+    is_admin = bool(token and verify_token(token))
+
     await websocket.accept()
     ws_clients.add(websocket)
     try:
         # Send full state immediately on connect
-        await websocket.send_json(cached_state)
+        state_to_send = dict(cached_state)
+        state_to_send["ws_authenticated"] = is_admin
+        await websocket.send_json(state_to_send)
         while True:
             # Keep connection alive -- actual updates via broadcast loop
             await asyncio.wait_for(websocket.receive_text(), timeout=30)

@@ -113,97 +113,23 @@ let routeLines = [];
 // Report state
 let detectedDustbinId = null;
 let detectedPhotoUrl  = null;  // Vultr Object Storage URL from detect step
+let _yoloData         = null;  // YOLO waste detection result
 let selectedOverflow = 3;
 let manualSelectedOverflow = 3;
 
 // Recent reports tracker
 let recentReports = [];
 
-// Route cache
+// ── ROUTE CACHING + MARKER HELPERS ─────────────────────────────────
+// Provided by shared.js (loaded before this file):
+//   - InfraRoute.fetchRoadPath(ri), InfraRoute.fetchMultiRoutes(ri)
+//   - getMarkerStateClass(state), getMarkerSize(state), createDivIcon(stateClass, sizeClass)
+//   - formatDistance(m), formatDuration(s), stateColor(state)
+// Legacy wrappers for backward compatibility with inline calls:
 const routeCache = {};
-
-// ── OSRM ROUTING — MULTI-ROUTE ──────────────────────────────────────
 const multiRouteCache = {};
-
-async function fetchMultiRoutes(ri) {
-    const cacheKey = `multi-${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
-    if (multiRouteCache[cacheKey]) return multiRouteCache[cacheKey];
-
-    try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=true`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
-        const data = await resp.json();
-
-        if (data.routes && data.routes.length > 0) {
-            const routes = data.routes.map(route => ({
-                coords: route.geometry.coordinates.map(c => [c[1], c[0]]),
-                distance: route.distance,
-                duration: route.duration
-            }));
-            multiRouteCache[cacheKey] = routes;
-            return routes;
-        }
-    } catch (e) {
-        console.warn('OSRM multi-route retry next tick:', e.message);
-    }
-
-    // Fallback: straight line — NOT CACHED so it retries next WS update
-    return [{ coords: [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]], distance: 0, duration: 0 }];
-}
-
-// Single-route fetch (used by zoomToAlert highlight)
-async function fetchRoadPath(ri) {
-    const cacheKey = `${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
-    if (routeCache[cacheKey]) return routeCache[cacheKey];
-
-    try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        const data = await resp.json();
-
-        if (data.routes && data.routes.length > 0) {
-            const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            routeCache[cacheKey] = coords;
-            return coords;
-        }
-    } catch (e) {
-        console.warn('OSRM routing retry next tick:', e.message);
-    }
-
-    // Fallback: NOT CACHED — will retry on next call
-    return [[ri.from_lat, ri.from_lng], [ri.to_lat, ri.to_lng]];
-}
-
-// ── MARKER HELPERS ──────────────────────────────────────────────────
-function getMarkerStateClass(state) {
-    switch (state?.toLowerCase()) {
-        case 'critical': return 'marker-critical';
-        case 'escalated': return 'marker-escalated';
-        case 'reported': return 'marker-reported';
-        case 'cleared': return 'marker-cleared';
-        default: return 'marker-clear';
-    }
-}
-
-function getMarkerSize(state) {
-    switch (state?.toLowerCase()) {
-        case 'critical': return 'marker-xl';
-        case 'escalated': return 'marker-lg';
-        case 'reported': return 'marker-md';
-        default: return 'marker-sm';
-    }
-}
-
-function createDivIcon(stateClass, sizeClass) {
-    const size = sizeClass === 'marker-xl' ? 42 : sizeClass === 'marker-lg' ? 34 : sizeClass === 'marker-md' ? 28 : 22;
-    return L.divIcon({
-        className: '',
-        html: `<div class="marker-icon ${stateClass} ${sizeClass}">🗑️</div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -size / 2]
-    });
-}
+async function fetchMultiRoutes(ri) { return InfraRoute.fetchMultiRoutes(ri); }
+async function fetchRoadPath(ri) { return InfraRoute.fetchRoadPath(ri); }
 
 // ── INIT ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -718,6 +644,36 @@ function initReportFlow() {
             uploadZone.style.display = 'none';
         };
         reader.readAsDataURL(f);
+        // Fire YOLO analysis in background immediately after file chosen
+        _yoloData = null;
+        const badge = document.getElementById('yoloBadge');
+        if (badge) { badge.style.display = 'flex'; badge.style.background = '#F1F5F9'; badge.style.color = '#64748B'; badge.innerHTML = '⏳ AI analysing image...'; }
+        const fd = new FormData();
+        fd.append('file', f);
+        fetch(`${API_BASE}/api/report/analyze-waste`, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                _yoloData = d;
+                // Replace the preview with the annotated (bounding-box) image if available
+                if (d.annotated_image && photoPreview) {
+                    photoPreview.src = d.annotated_image;
+                }
+                if (!badge) return;
+                if (!d.available) { badge.style.display = 'none'; return; }
+                const classesHtml = (d.waste_classes && d.waste_classes.length)
+                    ? ` &nbsp;<span style="opacity:0.75;font-size:10px;">🏷 ${d.waste_classes.join(', ')}</span>` : '';
+                if (d.waste_detected && d.confidence >= 0.55) {
+                    badge.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700;background:#DCFCE7;color:#15803D;margin-bottom:16px;';
+                    badge.innerHTML = `🤖 <b>${d.label}</b> &nbsp; <span style="background:#15803D;color:#fff;border-radius:6px;padding:2px 8px;">${Math.round(d.confidence*100)}%</span>${classesHtml}`;
+                } else if (d.waste_detected) {
+                    badge.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700;background:#FEF9C3;color:#854D0E;margin-bottom:16px;';
+                    badge.innerHTML = `🤖 <b>${d.label}</b> &nbsp; <span style="background:#A16207;color:#fff;border-radius:6px;padding:2px 8px;">${Math.round(d.confidence*100)}%</span>${classesHtml}`;
+                } else {
+                    badge.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700;background:#FEE2E2;color:#B91C1C;margin-bottom:16px;';
+                    badge.innerHTML = `🤖 <b>${d.label}</b> &nbsp; <span style="opacity:0.7;font-size:11px;">Please verify manually</span>`;
+                }
+            })
+            .catch(() => { if (badge) badge.style.display = 'none'; });
     };
 
     uploadZone.addEventListener('click', () => photoInput.click());
@@ -811,7 +767,14 @@ async function submitReport(dustbinId, overflow, photoUrl) {
         const resp = await fetch(`${API_BASE}/api/report/dustbin/confirm`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHdrs },
-            body: JSON.stringify({ dustbin_id: dustbinId, overflow_level: overflow, photo_url: photoUrl || null })
+            body: JSON.stringify({
+                dustbin_id:       dustbinId,
+                overflow_level:   overflow,
+                photo_url:        photoUrl || null,
+                ai_verified:      _yoloData?.waste_detected ?? null,
+                yolo_confidence:  _yoloData?.confidence     ?? null,
+                detected_objects: _yoloData?.waste_classes  ?? null,
+            })
         });
 
         if (resp.ok) {
@@ -827,8 +790,11 @@ async function submitReport(dustbinId, overflow, photoUrl) {
             document.getElementById('detectionResult').classList.add('hidden');
             document.getElementById('photoPreview').classList.add('hidden');
             document.getElementById('uploadZone').style.display = '';
+            const badge = document.getElementById('yoloBadge');
+            if (badge) badge.style.display = 'none';
             detectedDustbinId = null;
             detectedPhotoUrl  = null;
+            _yoloData         = null;
         } else {
             const err = await resp.json();
             showToast(err.detail || 'Submission failed.', 'error');
