@@ -18,7 +18,7 @@
 
 ---
 
-**🔴 Live Demo →** [infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com) &nbsp;|&nbsp; **🛡️ Admin Portal →** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) *(Token: `INFRAWATCH_ADMIN_2026`)*
+**🔴 Live Demo →** [infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com) &nbsp;|&nbsp; **🛡️ Admin Portal →** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) *(Token: set via `ADMIN_TOKEN` env var)*
 
 </div>
 
@@ -94,9 +94,9 @@ This separation means:
 
 Standard dashboards are **passive** — you query them: *"What is the risk right now?"*
 
-Pathway is **active** — we define **Standing Intelligence Rules**. As data flows in (bin reported, rain begins, van dispatched), the risk state updates *instantly* and is **pushed** to every connected client without any API call.
+Pathway is **active** — we define **Standing Intelligence Rules**. In v6.0, we use **Pathway Streaming Primitives** (`pw.io.fs.read`) to watch for new events. As data flows in (bin reported, rain begins, van dispatched), the risk state updates *instantly* and is **pushed** to every connected client via WebSocket.
 
-> *"If your system does not update automatically when new data arrives, it is not a Pathway project."* — Ours does. Every 3 seconds.
+> *"If your system does not update automatically when new data arrives, it is not a Pathway project."* — Ours does. It is fully **event-driven**, with a 30s idle backup for time-dependent factors like weather.
 
 ### Why Real Government Data Matters
 
@@ -176,13 +176,11 @@ graph TD
 - Manual fallback: if AI confidence is low, a ward-filtered dropdown auto-appears
 - GPS coordinates captured with every report for spatial heatmapping
 
-### 2. 🌊 Pathway Streaming Engine
-
-- **2-hour event-time rolling windows** for waste reports; **6-hour** for road hazards
-- **Dustbin State Machine**: `Clear → Reported → Escalated → Critical → Cleared`
-- **Weather-aware risk multiplication**: live rainfall from WeatherAPI.com acts as a multiplier — rain + open waste = instant escalation to the top of the queue
-- **Atomic JSON output**: state written via `tempfile + os.replace()` — zero partial reads
-- **3-second recompute loop**: system is always live, never stale
+- **Pathway v6.0 Streaming Engine**: Uses `pw.io.fs.read` in streaming mode for native change detection.
+- **Dustbin State Machine**: `Clear → Reported → Escalated → Critical → Cleared` with hysteresis state persistence to SQLite.
+- **Weather-aware risk multiplication**: live rainfall from WeatherAPI.com acts as a multiplier — rain + open waste = instant escalation.
+- **Atomic JSON output**: state written via `tempfile + os.replace()` — zero partial reads.
+- **Event-Driven**: Instant recomputation on new events with a 30-second idle refresh for time-based factors.
 
 ### 3. 🛡️ Admin Command Center
 
@@ -397,7 +395,7 @@ bash start.sh
 # ── Core ───────────────────────────────────────────
 WX_API_KEY=your_weatherapi_key
 GEMINI_API_KEY=your_google_ai_studio_key
-ADMIN_TOKEN=INFRAWATCH_ADMIN_2026
+ADMIN_TOKEN=your_secret_admin_token_here
 
 # ── Auth0 (Citizen Identity) ────────────────────────
 AUTH0_DOMAIN=your-tenant.us.auth0.com
