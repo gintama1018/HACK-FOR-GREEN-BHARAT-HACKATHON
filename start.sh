@@ -51,7 +51,7 @@ echo "  Data directories: OK"
 echo ""
 echo "  ▶ Starting Pathway engine (auto-restart on crash)..."
 while true; do
-    python pathway_engine.py
+    python3 pathway_engine.py
     echo "  Pathway crashed — restarting in 5s..."
     sleep 5
 done &
@@ -82,4 +82,4 @@ cleanup() {
 }
 trap cleanup INT TERM
 
-python api/server.py
+python3 api/server.py

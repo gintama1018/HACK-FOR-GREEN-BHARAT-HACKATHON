@@ -82,7 +82,14 @@ async function _authHeaders() {
         console.log('[Auth] Token obtained, length:', _authToken ? _authToken.length : 0);
         return { 'Authorization': 'Bearer ' + _authToken };
     } catch (e) {
-        console.warn('[Auth] getTokenSilently failed:', e.message || e);
+        const errorMsg = e.message || e.error || e;
+        // Suppress expected warnings for unauthenticated users
+        if (!errorMsg.includes('Missing Refresh Token') && 
+            !errorMsg.includes('login_required') && 
+            !errorMsg.includes('consent_required')) {
+            console.warn('[Auth] getTokenSilently failed:', errorMsg);
+        }
+        
         if (e.error === 'login_required' || e.error === 'consent_required') {
             await _auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: location.origin } });
         }
@@ -349,11 +356,14 @@ function updateMarkers(markerStore, dustbinStates) {
     }
 }
 
-function drawRoadLines(map, lineStore, roadIssues) {
+async function drawRoadLines(map, lineStore, roadIssues) {
     lineStore.forEach(l => map.removeLayer(l));
     lineStore.length = 0;
 
     for (const ri of (roadIssues || [])) {
+        // Sleep to respect OSRM public API rate limits (avoid timeouts)
+        await new Promise(r => setTimeout(r, 200));
+        
         fetchMultiRoutes(ri).then(routes => {
             if (!routes || routes.length === 0) return;
 
@@ -1339,32 +1349,62 @@ async function _getElevenLabsKey() {
     return '';
 }
 
-async function _aiSpeak(text) {
+async function _aiSpeak(text, onDone) {
     // Silently fail if no key or TTS unavailable — must not break callers
     try {
+        if (window._aiAudio) { window._aiAudio.pause(); window._aiAudio = null; }
+        const statusEl = document.getElementById('aiSpeakStatus');
+        if (statusEl) statusEl.style.display = 'block';
+
         const key = await _getElevenLabsKey();
-        if (!key) return;
+        if (!key) {
+            if (statusEl) statusEl.style.display = 'none';
+            if (onDone) onDone();
+            return;
+        }
+
         const voiceId = (configData && configData.elevenlabs_voice_id) || '56k72tYpS6hbRADdszYg';
+        const speakText = text.trim().substring(0, 350);
+
         const resp = await fetch(
             `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
             {
                 method: 'POST',
                 headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    text: text,
+                    text: speakText,
                     model_id: 'eleven_multilingual_v2',
                     voice_settings: { stability: 0.5, similarity_boost: 0.75 },
                 }),
             }
         );
-        if (!resp.ok) return;
+        if (!resp.ok) {
+            if (statusEl) statusEl.style.display = 'none';
+            if (onDone) onDone();
+            return;
+        }
+
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.onended = () => URL.revokeObjectURL(url);
-        audio.play().catch(() => {});
+        window._aiAudio = new Audio(url);
+        window._aiAudio.onended = () => {
+            URL.revokeObjectURL(url);
+            if (statusEl) statusEl.style.display = 'none';
+            window._aiAudio = null;
+            if (onDone) onDone();
+        };
+        window._aiAudio.onerror = () => {
+            URL.revokeObjectURL(url);
+            if (statusEl) statusEl.style.display = 'none';
+            window._aiAudio = null;
+            if (onDone) onDone();
+        };
+        await window._aiAudio.play();
     } catch (e) {
         console.warn('[ElevenLabs] TTS failed:', e.message);
+        const statusEl = document.getElementById('aiSpeakStatus');
+        if (statusEl) statusEl.style.display = 'none';
+        if (onDone) onDone();
     }
 }
 

@@ -51,8 +51,8 @@ def read_dashboard_snapshot(output_dir):
         if size == 0:
             return None
         with open(filepath, "rb") as f:
-            # Seek from end, read up to 8KB to find last line
-            read_size = min(size, 8192)
+            # Seek from end, read up to 1MB to find last line
+            read_size = min(size, 1024 * 1024)
             f.seek(-read_size, 2)
             chunk = f.read().decode("utf-8", errors="replace")
         # Take the last non-empty line

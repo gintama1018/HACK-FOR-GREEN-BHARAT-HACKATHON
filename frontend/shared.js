@@ -17,12 +17,17 @@ const InfraRoute = (() => {
      * Returns array of [lat, lng] pairs.
      */
     async function fetchRoadPath(ri) {
+        // Guard: skip if coordinates are missing or zeroed (dustbin not in registry)
+        if (!ri.from_lat || !ri.from_lng || !ri.to_lat || !ri.to_lng) {
+            console.warn('[fetchRoadPath] Zero/missing coords, skipping OSRM:', ri);
+            return [[ri.from_lat || 0, ri.from_lng || 0]];
+        }
         const cacheKey = `${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
         if (routeCache[cacheKey]) return routeCache[cacheKey];
 
         try {
             const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson`;
-            const resp = await fetch(url, { signal: AbortSignal.timeout(2000) });
+            const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
             const data = await resp.json();
 
             if (data.routes && data.routes.length > 0) {
@@ -44,12 +49,17 @@ const InfraRoute = (() => {
      * Returns array of {coords, distance, duration}.
      */
     async function fetchMultiRoutes(ri) {
+        // Guard: skip if coordinates are missing or zeroed (dustbin not in registry)
+        if (!ri.from_lat || !ri.from_lng || !ri.to_lat || !ri.to_lng) {
+            console.warn('[fetchMultiRoutes] Zero/missing coords, skipping OSRM:', ri);
+            return [];
+        }
         const cacheKey = `multi-${ri.from_lat},${ri.from_lng}-${ri.to_lat},${ri.to_lng}`;
         if (multiRouteCache[cacheKey]) return multiRouteCache[cacheKey];
 
         try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=true`;
-            const resp = await fetch(url, { signal: AbortSignal.timeout(2000) });
+            const url = `https://router.project-osrm.org/route/v1/driving/${ri.from_lng},${ri.from_lat};${ri.to_lng},${ri.to_lat}?overview=full&geometries=geojson&alternatives=2`;
+            const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
             const data = await resp.json();
 
             if (data.routes && data.routes.length > 0) {

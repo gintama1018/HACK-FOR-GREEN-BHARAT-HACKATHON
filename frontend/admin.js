@@ -488,11 +488,6 @@ function connectWebSocket() {
     const statusEl = document.getElementById('wsStatus');
     ws = new WebSocket(WS_URL);
 
-    ws.onopen = () => {
-        statusEl.textContent = '● CONNECTED';
-        statusEl.className = 'badge live';
-    };
-
     ws.onmessage = (event) => {
         dashboard = JSON.parse(event.data);
         document.getElementById('weatherBadge').textContent = `🌧 ${dashboard.rainfall_mm_hr || 0}mm/hr`;

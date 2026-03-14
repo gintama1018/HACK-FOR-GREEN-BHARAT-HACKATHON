@@ -28,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Header, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -783,12 +783,9 @@ async def get_config(authorization: Optional[str] = Header(None)):
             "audience": os.getenv("AUTH0_AUDIENCE", "https://infrawatch-nexus-api"),
         },
     }
-    # Return ElevenLabs keys only to authenticated users (3-part JWT check)
-    if authorization:
-        token = authorization.replace("Bearer ", "").strip()
-        if len(token.split(".")) == 3:
-            resp["elevenlabs_key"] = os.getenv("ELEVENLABS_API_KEY", "")
-            resp["elevenlabs_voice_id"] = os.getenv("ELEVENLABS_VOICE_ID", "56k72tYpS6hbRADdszYg")
+    # Return ElevenLabs keys for both guest and authenticated users
+    resp["elevenlabs_key"] = os.getenv("ELEVENLABS_API_KEY", "")
+    resp["elevenlabs_voice_id"] = os.getenv("ELEVENLABS_VOICE_ID", "")
     return JSONResponse(content=resp)
 
 
@@ -1042,7 +1039,10 @@ async def serve_citizen_portal():
     """Serve Citizens' Portal."""
     filepath = os.path.join(FRONTEND_DIR, "citizen.html")
     with open(filepath, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        return HTMLResponse(
+            content=f.read(),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
 
 @app.get("/admin")
@@ -1050,7 +1050,16 @@ async def serve_admin_portal():
     """Serve Admin Portal."""
     filepath = os.path.join(FRONTEND_DIR, "admin.html")
     with open(filepath, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        return HTMLResponse(
+            content=f.read(),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Silence browser 404s for favicon"""
+    return Response(status_code=204)
 
 
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
