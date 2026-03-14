@@ -913,7 +913,11 @@ async def chat_with_ai(
             "speak": "अभी जवाब देने में समस्या हो रही है। कृपया दोबारा कोशिश करें।",
         }
 
-    return JSONResponse(content=result)
+    # Map the AI advisor 'answer' natively to frontend's expected 'reply' payload
+    return JSONResponse(content={
+        "reply": result.get("answer", "No reply generated."),
+        "speak": result.get("speak", "")
+    })
 
 
 @app.get("/api/my-reports")
