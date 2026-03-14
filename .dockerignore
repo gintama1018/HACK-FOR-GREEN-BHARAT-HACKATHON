@@ -1,0 +1,53 @@
+# Dependencies
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data (ephemeral, regenerated at runtime)
+data/reports/
+data/output/
+data/infrawatch.db
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+test_results.txt
+test_output.txt
+
+# Build artifacts
+*.tmp
+*.log
+
+# Docs generation
+_pdf_extracted.txt
+generate_docs_pdf.py
+dump_pdf.py
+extract_106_sites.py
+extract_pptx.py
+
+# Git
+.git/
+.gitignore

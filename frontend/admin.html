@@ -71,7 +71,9 @@
                 <button class="tab-btn" data-tab="tab-road">Road Form</button>
                 <button class="tab-btn" data-tab="tab-analytics">Analytics</button>
                 <button class="tab-btn" data-tab="tab-forecast">🔮 Forecast</button>
+                <button class="tab-btn" data-tab="tab-ai">🧠 AI Heatmap</button>
                 <button class="tab-btn" data-tab="tab-qr">📱 QR Codes</button>
+                <button class="tab-btn" data-tab="tab-accountability">📋 RTI</button>
             </div>
 
 
@@ -166,6 +168,18 @@
                 <div id="qrGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:520px;overflow-y:auto;"></div>
             </div>
 
+            <!-- TAB 6: AI WASTE HEATMAP -->
+            <div class="tab-content" id="tab-ai">
+                <h3 style="font-size:14px;margin-bottom:4px;">🧠 AI Waste Heatmap</h3>
+                <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">Aggregated from YOLOv8 detections on citizen-submitted photos.</p>
+                <div id="aiSummaryBar" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;"></div>
+                <div id="aiWasteChart" style="max-height:420px;overflow-y:auto;"></div>
+                <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+                    <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Recent AI-Verified Reports</div>
+                    <div id="aiRecentList" style="max-height:180px;overflow-y:auto;"></div>
+                </div>
+            </div>
+
             <!-- TAB 4: PREDICTIVE FORECAST -->
             <div class="tab-content" id="tab-forecast">
                 <h3 style="font-size: 14px; margin-bottom: 16px;">🔮 3-Day Predictive Risk Forecast</h3>
@@ -177,11 +191,26 @@
                     Forecast</button>
             </div>
 
+            <!-- TAB: RTI / ACCOUNTABILITY -->
+            <div class="tab-content" id="tab-accountability">
+                <h3 style="font-size:14px;margin-bottom:4px;">📋 Accountability &amp; RTI</h3>
+                <p style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">Auto-generated RTI drafts for high-priority alerts unresolved &gt;72 hours.</p>
+                <a href="/transparency" target="_blank" style="display:block;text-align:center;padding:10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.35);color:#6366F1;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:16px;">
+                    🌐 Open Public Transparency Dashboard ↗
+                </a>
+                <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Recent RTI Drafts</div>
+                <div id="rtiAdminList" style="max-height:480px;overflow-y:auto;">
+                    <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px;">Click to load RTI drafts…</div>
+                </div>
+                <button class="btn btn-primary" id="btnLoadRTI" style="margin-top:12px;width:100%;">Load RTI Drafts</button>
+            </div>
+
         </aside>
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
-    <script src="/static/admin.js?v=10"></script>
+    <script src="/static/shared.js?v=5"></script>
+    <script src="/static/admin.js?v=12"></script>
     <script>
     // ── QR CODE TAB ───────────────────────────────────────────────
     (function() {
@@ -241,6 +270,20 @@
             });
         }
     })();
+
+    // ── AI HEATMAP TAB ──────────────────────────────────────────
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-tab="tab-ai"]');
+        if (!btn) return;
+        if (typeof renderAIHeatmap === 'function') renderAIHeatmap();
+    });
+
+    // ── RTI / ACCOUNTABILITY TAB ────────────────────────────────
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-tab="tab-accountability"]');
+        if (!btn) return;
+        if (typeof loadRTIAdmin === 'function') loadRTIAdmin();
+    });
     </script>
 </body>
 
