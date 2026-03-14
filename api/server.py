@@ -1049,6 +1049,26 @@ async def serve_citizen_portal():
         )
 
 
+@app.get("/report")
+async def serve_citizen_portal_report(bin: Optional[str] = None):
+    """Serve Citizens' Portal with QR pre-fill injected."""
+    filepath = os.path.join(FRONTEND_DIR, "citizen.html")
+    with open(filepath, "r", encoding="utf-8") as f:
+        html = f.read()
+    
+    # Inject the bin ID as a global JS variable so the frontend skips to the Report UI
+    if bin:
+        # Sanitize bin input slightly to prevent XSS breakout
+        safe_bin = "".join(c for c in bin if c.isalnum() or c in "-_")
+        injection = f'<script>window._QR_PREFILL_BIN = "{safe_bin}";</script>'
+        html = html.replace("</head>", f"{injection}\n</head>")
+
+    return HTMLResponse(
+        content=html,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
+
+
 @app.get("/admin")
 async def serve_admin_portal():
     """Serve Admin Portal."""
