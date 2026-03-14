@@ -499,6 +499,12 @@ function zoomToRoadIssue(ri) {
     // Zoom the dashboard map to this road issue and draw highlight
     if (!dashMap) return;
 
+    // Guard against missing/zero coordinates (dustbin not in registry)
+    if (!ri.from_lat || !ri.from_lng || !ri.to_lat || !ri.to_lng) {
+        console.warn('[zoomToRoadIssue] Missing coordinates for', ri.event_id);
+        return;
+    }
+
     // Remove previous highlight
     if (citizenHighlightLine) { dashMap.removeLayer(citizenHighlightLine); citizenHighlightLine = null; }
 
@@ -1583,14 +1589,21 @@ async function _chatSend() {
 // INIT: Wire up rewards + chatbot after Auth0 loads
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Hook into DOMContentLoaded to init widgets after auth state is known
 document.addEventListener('DOMContentLoaded', () => {
-    // Delay slightly so _authUser is populated after _initAuth0 resolves
-    setTimeout(() => {
-        _initChatbot();
-        if (_authUser) {
+    // Always init chatbot widget structure immediately — button visibility is
+    // controlled inside _initChatbot via the infrawatch:auth event it listens for.
+    _initChatbot();
+
+    // If Auth0 has already resolved synchronously (e.g. token cached), init rewards now
+    if (_authUser) {
+        _initRewardsCard();
+    }
+
+    // Also listen for the auth event in case Auth0 resolves after DOMContentLoaded
+    window.addEventListener('infrawatch:auth', () => {
+        if (_authUser && typeof _initRewardsCard === 'function') {
             _initRewardsCard();
         }
-    }, 2000);
+    });
 });
 

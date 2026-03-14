@@ -504,6 +504,49 @@ async def report_van_collection(
     })
 
 
+@app.get("/api/whatsapp-escalate/{dustbin_id}")
+@limiter.limit("10/minute")
+async def whatsapp_escalate(
+    request: Request,
+    dustbin_id: str,
+    authorization: Optional[str] = Header(None),
+):
+    """Admin: Generate a WhatsApp escalation link for a dustbin."""
+    if not _check_admin_token(authorization):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
+
+    if not validate_dustbin_id(dustbin_id):
+        return JSONResponse(
+            content={"error": f"Invalid dustbin ID: {dustbin_id}"},
+            status_code=400,
+        )
+
+    dustbin = get_dustbin(dustbin_id)
+    live_states = {ds.get("dustbin_id", ""): ds for ds in cached_state.get("dustbin_states", [])}
+    live = live_states.get(dustbin_id, {})
+    state = live.get("state", "Unknown")
+    report_count = live.get("report_count", 0)
+
+    message = (
+        f"\U0001f6a8 InfraWatch Alert\n"
+        f"Dustbin: {dustbin_id}\n"
+        f"Location: {dustbin.get('street', 'Unknown')}\n"
+        f"Ward: {dustbin.get('ward_id', 'Unknown')}\n"
+        f"State: {state} | Reports: {report_count}\n"
+        f"Action required immediately."
+    )
+
+    import urllib.parse
+    wa_link = f"https://wa.me/?text={urllib.parse.quote(message)}"
+
+    return JSONResponse(content={
+        "wa_link": wa_link,
+        "dustbin_id": dustbin_id,
+        "state": state,
+        "message": "WhatsApp escalation link generated.",
+    })
+
+
 @app.post("/api/van/clear-road")
 @limiter.limit("20/minute")
 async def report_road_cleared(

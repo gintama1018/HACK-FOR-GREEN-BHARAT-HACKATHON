@@ -250,13 +250,13 @@ def _citizen_gemini(message, enriched_reports, cached_state, api_key):
             reports_section = "\nUser has no previous reports on record.\n"
 
         # Build city context section
-        ward_risks = cached_state.get("ward_risks", {})
-        top_wards = sorted(ward_risks.items(), key=lambda x: x[1].get("risk", 0), reverse=True)[:3]
+        ward_risks_list = cached_state.get("ward_risks", [])
+        top_wards = sorted(ward_risks_list, key=lambda x: x.get("risk_score", 0), reverse=True)[:3]
         city_context = (
             f"City Waste Index: {cached_state.get('city_waste_index', 0)}/100 | "
             f"Rainfall: {cached_state.get('rainfall_mm_hr', 0)}mm/hr\n"
             f"Top Risk Wards: " +
-            ", ".join(f"{w[0]} ({w[1].get('risk',0)}/100)" for w in top_wards)
+            ", ".join(f"{w.get('name', w.get('ward_id','?'))} ({w.get('risk_score',0)}/100)" for w in top_wards)
         )
 
         prompt = f"""You are InfraWatch Nexus AI assistant for Delhi citizens.
@@ -332,12 +332,12 @@ def _citizen_fallback(message, enriched_reports, cached_state):
             speak = "सफाई का समय वार्ड की प्राथमिकता पर निर्भर करता है।"
 
     elif any(k in msg_lower for k in ["ward", "area", "zone", "ilaka"]):
-        ward_risks = cached_state.get("ward_risks", {})
-        top = sorted(ward_risks.items(), key=lambda x: x[1].get("risk", 0), reverse=True)[:3]
+        ward_risks_list = cached_state.get("ward_risks", [])
+        top = sorted(ward_risks_list, key=lambda x: x.get("risk_score", 0), reverse=True)[:3]
         if top:
-            top_str = ", ".join(f"{w[0]} (risk: {w[1].get('risk', 0)})" for w in top)
+            top_str = ", ".join(f"{w.get('name', w.get('ward_id','?'))} (risk: {w.get('risk_score', 0)})" for w in top)
             answer = f"Current high-risk areas: {top_str}. City waste index is {waste_index}/100."
-            speak = f"उच्च जोखिम वाले क्षेत्र: {', '.join(w[0] for w in top[:2])}। शहर का अपशिष्ट सूचकांक {waste_index}/100 है।"
+            speak = f"उच्च जोखिम वाले क्षेत्र: {', '.join(w.get('name', w.get('ward_id','?')) for w in top[:2])}। शहर का अपशिष्ट सूचकांक {waste_index}/100 है।"
         else:
             answer = f"City waste index is currently {waste_index}/100."
             speak = f"शहर का अपशिष्ट सूचकांक {waste_index}/100 है।"

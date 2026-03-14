@@ -386,7 +386,7 @@ function renderQueue() {
 
 async function escalateWhatsApp(evt, dustbinId) {
     evt.stopPropagation();
-    const token = localStorage.getItem('adminToken') || '';
+    const token = sessionStorage.getItem('infrawatch_admin_token') || '';
     try {
         const resp = await fetch(`${API_BASE}/api/whatsapp-escalate/${encodeURIComponent(dustbinId)}`, {
             headers: { Authorization: `Bearer ${token}` },
