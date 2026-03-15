@@ -182,6 +182,28 @@ graph TD
 
 ---
 
+## 📸 Screenshots
+
+### 🗳️ Citizen Portal — Live Delhi Map
+![Citizen Portal with live dustbin markers across Delhi](docs/screenshots/citizen_portal.png)
+
+### 🚛 Real-Time Map — All 106 MCD Dustbins
+![Interactive Leaflet map showing 106 dustbin locations across Delhi NCR](docs/screenshots/citizen_map.png)
+
+### 🏆 Civic Champions Leaderboard
+![Top Reporters leaderboard modal showing civic points and rupee rewards](docs/screenshots/leaderboard.png)
+
+### 🚨 Live Road Hazard Alerts
+![Road Alerts modal showing active hazard reports with locations](docs/screenshots/road_alerts.png)
+
+### 🛠️ Admin Command Center
+![Admin dashboard with priority dispatch queue and ward risk overview](docs/screenshots/admin_dashboard.png)
+
+### 📊 Admin Priority Queue & Analytics
+![Detailed admin view with dustbin states, ward analytics, and dispatch controls](docs/screenshots/admin_queue.png)
+
+---
+
 ### 1. 📸 AI-Powered Zero-Friction Reporting
 
 - Citizens upload **one photo** — Gemini 2.5 Flash Vision extracts the exact MCD dustbin ID (e.g. `MCD-W04-001`) in under 5 seconds
