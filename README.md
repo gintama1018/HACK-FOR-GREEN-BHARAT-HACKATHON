@@ -169,6 +169,19 @@ graph TD
 
 ## ✨ Feature Breakdown
 
+### New in v7.3: Civic Rewards, AI Chatbot & QR Scan-to-Report
+
+| Feature | Description |
+|---------|-------------|
+| 🏆 **Civic Leaderboard** | Public real-time top-10 reporters ranked by civic points and rupee earnings |
+| 💰 **Citizen Monetization** | Reports are assigned pending ₹ rewards; resolved when a van clears the issue |
+| 🦸 **Selfie Heroes** | Anonymous (non-logged-in) reporters are pooled into a "Selfie Heroes" faction that earns collective points |
+| 🤖 **AI Civic Assistant** | Floating chatbot powered by Gemini — answers waste status questions in Hindi and English |
+| 📱 **QR Scan-to-Report** | Each dustbin has a unique QR code; scanning on mobile pre-fills the report form instantly |
+| 🎙️ **Hindi Voice TTS** | ElevenLabs speaks *"आपकी शिकायत सफलतापूर्वक दर्ज हो गई!"* after every report |
+
+---
+
 ### 1. 📸 AI-Powered Zero-Friction Reporting
 
 - Citizens upload **one photo** — Gemini 2.5 Flash Vision extracts the exact MCD dustbin ID (e.g. `MCD-W04-001`) in under 5 seconds
@@ -181,6 +194,14 @@ graph TD
 - **Weather-aware risk multiplication**: live rainfall from WeatherAPI.com acts as a multiplier — rain + open waste = instant escalation.
 - **Atomic JSON output**: state written via `tempfile + os.replace()` — zero partial reads.
 - **Event-Driven**: Instant recomputation on new events with a 30-second idle refresh for time-based factors.
+
+### 2b. 📱 QR Scan-to-Report
+
+- Every dustbin has a **unique QR code** (printed card containing dustbin ID + ward)
+- Citizens scan the QR code on their phone → Safari/Chrome opens the Citizens' Portal with the overflow form **pre-filled for that exact dustbin**
+- No login required, no typing — **under 10 seconds, start to submit**
+- The server injects `window._QR_PREFILL_BIN` dynamically per-scan with XSS protection
+- QR print sheets can be generated for the whole city with `python generate_qr_codes.py --host https://..`
 
 ### 3. 🛡️ Admin Command Center
 
@@ -440,13 +461,17 @@ The Admin portal includes a built-in **"Simulate Crisis"** button. Click it to i
 | `GET` | `/api/dashboard` | — | Full Pathway-computed dashboard state |
 | `GET` | `/api/dustbins` | — | Dustbin registry + live status overlay |
 | `GET` | `/api/forecast` | — | 3-day predictive risk forecast |
+| `GET` | `/report?bin=MCD-XXX` | — | QR Code landing — pre-fills report form for the scanned dustbin |
 | `POST` | `/api/report/dustbin/detect` | Auth0 JWT *(optional)* | Upload photo → Gemini extraction + Vultr storage |
-| `POST` | `/api/report/dustbin/confirm` | Auth0 JWT *(optional)* | Confirm report → event written, user attributed |
+| `POST` | `/api/report/dustbin/confirm` | Auth0 JWT *(optional)* | Confirm report → event written, user attributed, reward issued |
 | `GET` | `/api/my-reports` | Auth0 JWT *(required)* | Citizen's own report history |
-| `GET` | `/api/tts-stream` | — | ElevenLabs Hindi TTS (`?text=...`) |
-| `POST` | `/api/chat` | Auth0 JWT *(optional)* | Gemini AI civic assistant — Hindi responses |
+| `GET` | `/api/leaderboard` | — | Public leaderboard: top 10 reporters by civic points this month |
+| `GET` | `/api/rewards/my` | Auth0 JWT *(required)* | Personal reward summary (points, pending ₹, paid ₹) |
+| `POST` | `/api/rewards/export` | Admin Bearer | CSV export of all resolved rewards for UPI disbursement |
+| `GET` | `/api/whatsapp-escalate/{id}` | Admin Bearer | Generate WhatsApp escalation link for a critical dustbin |
+| `POST` | `/api/chat` | Auth0 JWT *(optional)* | Gemini AI civic assistant — context-aware Hindi/English responses |
 | `POST` | `/api/report/road-issue` | Admin Bearer | Report road hazard |
-| `POST` | `/api/van/collection` | Admin Bearer | Mark dustbin as collected |
+| `POST` | `/api/van/collection` | Admin Bearer | Mark dustbin as collected — triggers reward resolution |
 | `POST` | `/api/van/clear-road` | Admin Bearer | Mark road issue as resolved |
 | `POST` | `/api/demo/simulate-crisis` | Admin Bearer | Inject synthetic crisis (demo) |
 | `WS` | `/ws` | — | Real-time state broadcast to all clients |
@@ -539,6 +564,30 @@ graph LR
 The risk engine stays exactly the same at every scale. Only the I/O layer changes:
 - **Input**: JSON files → Apache Kafka (high-throughput ingestion)
 - **Output**: JSONL → PostgreSQL / TimescaleDB (historical analytics + BI)
+
+---
+
+## 🏆 Civic Reward & Monetization System
+
+InfraWatch Nexus includes a complete micro-payment incentive mechanism to reward citizens who report verified issues:
+
+| Step | Event | Result |
+|------|-------|--------|
+| 1 | Citizen reports a verified dustbin overflow | Pending Reward created (points + ₹) |
+| 2 | Sanitation van confirms collection (`/api/van/collection`) | Reward is **Resolved** — citizen earns their rupees |
+| 3 | Admin exports resolved rewards | CSV for UPI disbursement to citizen bank accounts |
+
+### 💵 Reward Scale
+
+| Overflow Level | Civic Points | Rupees (₹) |
+|----------------|-------------|-------------|
+| Level 1–2 | 10 pts | ₹5 |
+| Level 3 | 20 pts | ₹10 |
+| Level 4 | 35 pts | ₹20 |
+| Level 5 (Critical) | 50 pts | ₹50 |
+
+### 🦸 Selfie Heroes (Anonymous Reporters)
+Citizens who report without logging in are grouped under the **"Selfie Heroes"** collective on the public leaderboard. Their combined points and rupees pool together — motivating group action without privacy compromise.
 
 ---
 
