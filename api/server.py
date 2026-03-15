@@ -305,23 +305,25 @@ async def confirm_dustbin_report(
     except Exception as e:
         print(f"[DB] Waste event write failed: {e}")
 
-    # Issue pending reward if user is identified
+    # Issue pending reward for ALL users (anonymous grouped as 'Selfie Heroes')
     reward_points = 0
-    if user_sub:
-        try:
-            reward = insert_pending_reward(
-                event_id=event["event_id"],
-                user_sub=user_sub,
-                reporter_name=report.reporter_name or "Anonymous",
-                reporter_upi=report.reporter_upi or "",
-                ward_id=dustbin["ward_id"],
-                dustbin_id=report.dustbin_id,
-                overflow_level=overflow,
-                reported_at=now_iso,
-            )
-            reward_points = reward["points"]
-        except Exception as e:
-            print(f"[Rewards] Failed to insert pending reward: {e}")
+    reward_user_sub = user_sub or "anonymous_selfie_hero"
+    reward_name = report.reporter_name or ("Anonymous" if user_sub else "Selfie Heroes")
+
+    try:
+        reward = insert_pending_reward(
+            event_id=event["event_id"],
+            user_sub=reward_user_sub,
+            reporter_name=reward_name,
+            reporter_upi=report.reporter_upi or "",
+            ward_id=dustbin["ward_id"],
+            dustbin_id=report.dustbin_id,
+            overflow_level=overflow,
+            reported_at=now_iso,
+        )
+        reward_points = reward["points"]
+    except Exception as e:
+        print(f"[Rewards] Failed to insert pending reward: {e}")
 
     return JSONResponse(content={
         "status": "accepted",

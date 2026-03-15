@@ -383,6 +383,7 @@ def get_leaderboard(month_str=None):
         rows = conn.execute(
             "SELECT reporter_name, ward_id, "
             "  SUM(points) as total_points, "
+            "  SUM(rupees) as total_rupees, "
             "  COUNT(CASE WHEN status IN ('resolved','exported') THEN 1 END) as reports_resolved "
             "FROM rewards "
             "WHERE status IN ('resolved','exported') "
@@ -401,7 +402,8 @@ def get_leaderboard(month_str=None):
             "rank": i + 1,
             "reporter_name": r["reporter_name"] or "Anonymous",
             "total_points": int(r["total_points"]),
-            "reports_resolved": int(r["reports_resolved"]),
+            "total_rupees": round(float(r["total_rupees"] or 0), 2),
+            "report_count": int(r["reports_resolved"]),
             "ward_id": r["ward_id"],
         })
     return result
