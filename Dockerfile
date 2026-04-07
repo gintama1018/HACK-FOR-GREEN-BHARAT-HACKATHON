@@ -33,6 +33,6 @@ RUN chmod +x docker-entrypoint.sh start.sh
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import requests; r=requests.get('http://localhost:8000/health'); exit(0 if r.status_code==200 else 1)"
+    CMD python -c "import requests; r=requests.get('http://localhost:7860/health'); exit(0 if r.status_code==200 else 1)"
 
 CMD ["bash", "docker-entrypoint.sh"]
