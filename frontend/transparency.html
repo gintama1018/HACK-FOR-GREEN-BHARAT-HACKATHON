@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NUWMS — Public Transparency & RTI Dashboard</title>
+    <meta name="description" content="Public portal for municipal transparency, active alerts, and auto-generated RTI drafts for unresolved infrastructure hazards.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #090D1A;
+            --bg-card: rgba(15, 23, 42, 0.65);
+            --bg-card-hover: rgba(30, 41, 59, 0.8);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-light: rgba(255, 255, 255, 0.15);
+            --accent: #3B82F6;
+            --accent-hover: #2563EB;
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--bg-primary) 70%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── HEADER ─────────────────────────────────────────── */
+        header {
+            width: calc(100% - 48px);
+            margin: 24px auto 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 20px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            color: #0F172A;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            background: #10B981;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .logo h1 {
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            font-family: 'Space Grotesk', sans-serif;
+            text-transform: uppercase;
+        }
+
+        .logo h1 .accent {
+            color: var(--accent);
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            background: rgba(0, 0, 0, 0.04);
+            color: #334155;
+            text-transform: uppercase;
+        }
+
+        .badge.live {
+            color: #059669;
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.15);
+        }
+
+        /* ── GRID CONTAINER ────────────────────────────────── */
+        .container {
+            width: calc(100% - 48px);
+            margin: 24px auto;
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            flex: 1;
+        }
+
+        /* Glassmorphism Panel styles */
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .panel-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        /* ── LEFT PANEL (Live Accountability Metrics) ──────── */
+        .metric-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+
+        .metric-card:hover {
+            border-color: var(--border-light);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-top: 6px;
+        }
+
+        .metric-value.warning {
+            color: var(--warning);
+        }
+
+        .metric-value.danger {
+            color: var(--danger);
+        }
+
+        .metric-value.success {
+            color: var(--success);
+        }
+
+        /* ── RIGHT PANEL (RTI Drafts List) ─────────────────── */
+        .rti-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            align-content: start;
+        }
+
+        .rti-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .rti-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+        }
+
+        .rti-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rti-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+
+        .rti-date {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .rti-subject {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .rti-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 16px;
+        }
+
+        .rti-action-link {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+            align-self: flex-start;
+            margin-top: 4px;
+        }
+
+        /* ── MODAL OVERLAY ──────────────────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.85);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(12px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: #0F172A;
+            border: 1px solid var(--border-light);
+            border-radius: 24px;
+            width: 700px;
+            max-width: 90vw;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: var(--text-primary);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            background: #090D1A;
+            white-space: pre-wrap;
+        }
+
+        .modal-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.05);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        /* Responsive */
+        @media screen and (max-width: 850px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            header {
+                width: calc(100% - 24px);
+                margin-top: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ── HEADER ─────────────────────────────────────────── -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon">♻</div>
+            <h1>NUWMS <span class="accent">TRANSPARENCY</span></h1>
+        </div>
+        <div class="header-badges">
+            <span class="badge live">● PUBLIC ARCHIVE</span>
+        </div>
+    </header>
+
+    <!-- ── GRID CONTAINER ────────────────────────────────── -->
+    <div class="container">
+        <!-- LEFT: ACCOUNTABILITY METRICS -->
+        <aside class="glass-panel">
+            <h2 class="panel-title">Public Accountability</h2>
+            <p class="panel-subtitle">Independent public metrics tracked automatically to hold civic administration responsible for sanitization failures.</p>
+
+            <div class="metric-card">
+                <span class="metric-label">Unresolved Critical Alerts</span>
+                <div class="metric-value danger" id="valCritical">2</div>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-label">Pending RTI filings</span>
+                <div class="metric-value warning" id="valPending">2</div>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-label">Municipal Escalations</span>
+                <div class="metric-value warning" id="valEscalations">4</div>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-label">System Health</span>
+                <div class="metric-value success">99.8%</div>
+            </div>
+        </aside>
+
+        <!-- RIGHT: AUTO-GENERATED RTI DRAFTS -->
+        <main class="glass-panel" style="flex: 1;">
+            <h2 class="panel-title">Recent Auto-Generated RTI Drafts</h2>
+            <p class="panel-subtitle">Section 6(1) Right to Information drafts automatically compiled when a reported waste overflow is ignored by local contractors for more than 72 hours. Click a card to copy the draft.</p>
+
+            <div class="rti-grid" id="rtiContainer">
+                <div style="padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px;">Loading RTI Archive...</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ── MODAL OVERLAY ──────────────────────────────────── -->
+    <div class="modal-overlay" id="rtiModalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">RTI Draft Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                <button class="btn btn-primary" id="btnCopy">Copy Draft Text</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedRTI = null;
+
+        document.addEventListener('DOMContentLoaded', loadRTIDrafts);
+
+        async function loadRTIDrafts() {
+            const container = document.getElementById('rtiContainer');
+            try {
+                const resp = await fetch('/api/rti');
+                const rtis = await resp.json();
+
+                // Update metrics summary
+                document.getElementById('valCritical').textContent = rtis.length;
+                document.getElementById('valPending').textContent = rtis.length;
+                document.getElementById('valEscalations').textContent = rtis.length * 2;
+
+                if (!rtis.length) {
+                    container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px;">No unresolved critical alerts older than 72 hours. Public compliance is clean.</div>';
+                    return;
+                }
+
+                container.innerHTML = rtis.map(ri => {
+                    const d = ri.rti_data || {};
+                    const dateStr = (ri.generated_at || '').slice(0, 16).replace('T', ' ');
+                    return `
+                        <div class="rti-card" onclick="openModal(${JSON.stringify(ri).replace(/"/g, '&quot;')})">
+                            <div class="rti-card-header">
+                                <span class="rti-id">${ri.rti_id}</span>
+                                <span class="rti-date">${dateStr}</span>
+                            </div>
+                            <div class="rti-subject">${d.subject || 'RTI Request Draft'}</div>
+                            <div class="rti-meta">
+                                <span>🗑️ Dustbin ID: <b>${ri.dustbin_id || '—'}</b></span>
+                                <span>📍 Ward ID: <b>${ri.ward_id || '—'}</b></span>
+                            </div>
+                            <div class="rti-action-link">Click to view fully drafted request ↗</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--danger); font-size: 13px;">Failed to connect to RTI Archive. Please try again.</div>';
+            }
+        }
+
+        function openModal(ri) {
+            selectedRTI = ri;
+            const overlay = document.getElementById('rtiModalOverlay');
+            document.getElementById('modalTitle').textContent = `📄 ${ri.rti_id} — Auto Draft`;
+            document.getElementById('modalBody').textContent = ri.rti_data?.body || '';
+            overlay.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('rtiModalOverlay').classList.remove('active');
+            selectedRTI = null;
+        }
+
+        document.getElementById('btnCopy').addEventListener('click', () => {
+            if (!selectedRTI?.rti_data?.body) return;
+            navigator.clipboard.writeText(selectedRTI.rti_data.body).then(() => {
+                const btn = document.getElementById('btnCopy');
+                const origText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = '#10B981';
+                setTimeout(() => {
+                    btn.textContent = origText;
+                    btn.style.background = '';
+                }, 1500);
+            });
+        });
+
+        // Close modal on click outside
+        document.getElementById('rtiModalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'rtiModalOverlay') closeModal();
+        });
+    </script>
+</body>
+</html>

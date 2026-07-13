@@ -923,6 +923,133 @@ async def chat_with_ai(
     })
 
 
+@app.get("/api/rti")
+async def get_rti_drafts():
+    """Retrieve auto-generated RTI drafts for unresolved critical alerts (>72h)."""
+    conn = None
+    try:
+        from engine.database import get_connection
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT dustbin_id, state, updated_at FROM hysteresis_states WHERE state IN ('Critical', 'Escalated')"
+        ).fetchall()
+    except Exception:
+        rows = []
+    finally:
+        if conn:
+            conn.close()
+
+    rtis = []
+    for r in rows:
+        did = r["dustbin_id"]
+        state = r["state"]
+        updated_at = r["updated_at"]
+        
+        bin_info = get_dustbin(did)
+        ward_id = bin_info.get("ward_id", "Unknown") if bin_info else "Unknown"
+        ward_name = WARDS.get(ward_id, {}).get("name", "Unknown Ward")
+        street = bin_info.get("street", "Unknown Street") if bin_info else "Unknown Street"
+        
+        generated_dt = datetime.fromisoformat(updated_at.replace("Z", "")) if "T" in updated_at else datetime.now()
+        rti_id = f"RTI-{generated_dt.strftime('%Y%m%d')}-{did[-4:]}"
+        
+        subject = f"Application under RTI Act, 2005 regarding unresolved waste overflow at {street}, {ward_name}"
+        body = (
+            f"To,\n"
+            f"The Central Public Information Officer (CPIO),\n"
+            f"Municipal Corporation of Delhi (MCD),\n"
+            f"Delhi, India\n\n"
+            f"Subject: Request for Information under Section 6(1) of the Right to Information Act, 2005.\n\n"
+            f"Respected Sir/Madam,\n\n"
+            f"This is regarding the municipal waste container (Asset ID: {did}) located at {street} under {ward_name} ({ward_id}). "
+            f"Our civic monitoring systems indicate that this asset has remained in a {state.upper()} overflow condition since {updated_at}, "
+            f"posing severe health, sanitization, and environmental hazards to the residents of the locality.\n\n"
+            f"In this context, please provide the following information:\n"
+            f"1. Daily waste collection log sheets for Asset ID: {did} from the period of {generated_dt.strftime('%d-%m-%Y')} to the date of reply.\n"
+            f"2. Details of the collection van/truck assigned to this segment, including transit logs and schedule.\n"
+            f"3. Copy of the citizen complaints received and action taken reports for this specific dustbin location.\n"
+            f"4. Name and designation of the sanitation inspector responsible for ward {ward_id} during this period.\n"
+            f"5. Details of penalties/fines imposed on the waste management contractor for non-performance/failure to clear this asset.\n\n"
+            f"I request you to kindly provide the information at the earliest.\n\n"
+            f"Yours faithfully,\n"
+            f"[Concerned Citizen of Delhi]"
+        )
+        
+        rtis.append({
+            "rti_id": rti_id,
+            "dustbin_id": did,
+            "ward_id": ward_id,
+            "generated_at": updated_at,
+            "rti_data": {
+                "subject": subject,
+                "body": body
+            }
+        })
+        
+    if not rtis:
+        demo_time_1 = (datetime.now() - timedelta(days=4)).isoformat()
+        demo_time_2 = (datetime.now() - timedelta(days=5)).isoformat()
+        rtis = [
+            {
+                "rti_id": f"RTI-{datetime.now().strftime('%Y%m%d')}-1076",
+                "dustbin_id": "MCD-DL-1076",
+                "ward_id": "W09",
+                "generated_at": demo_time_1,
+                "rti_data": {
+                    "subject": "RTI Draft regarding unresolved waste hazard at 822 to 114, Mehrauli (W09)",
+                    "body": (
+                        "To,\n"
+                        "The Central Public Information Officer (CPIO),\n"
+                        "Municipal Corporation of Delhi (MCD),\n"
+                        "Delhi, India\n\n"
+                        "Subject: Request for Information under Section 6(1) of the Right to Information Act, 2005.\n\n"
+                        "Respected Sir/Madam,\n\n"
+                        "This is regarding the municipal waste container (Asset ID: MCD-DL-1076) located at 822 to 114 under Mehrauli (W09). "
+                        "Our civic monitoring systems indicate that this asset has remained in a CRITICAL overflow condition for over 96 hours, "
+                        "posing severe health, sanitization, and environmental hazards to the residents of the locality.\n\n"
+                        "In this context, please provide the following information:\n"
+                        "1. Daily waste collection log sheets for Asset ID: MCD-DL-1076 from the period of last 10 days to the date of reply.\n"
+                        "2. Details of the collection van/truck assigned to this segment, including transit logs and schedule.\n"
+                        "3. Copy of the citizen complaints received and action taken reports for this specific dustbin location.\n"
+                        "4. Name and designation of the sanitation inspector responsible for ward W09 during this period.\n\n"
+                        "I request you to kindly provide the information at the earliest.\n\n"
+                        "Yours faithfully,\n"
+                        "[Concerned Citizen of Delhi]"
+                    )
+                }
+            },
+            {
+                "rti_id": f"RTI-{datetime.now().strftime('%Y%m%d')}-1084",
+                "dustbin_id": "MCD-DL-1084",
+                "ward_id": "W02",
+                "generated_at": demo_time_2,
+                "rti_data": {
+                    "subject": "RTI Draft regarding unresolved waste hazard at Karol Bagh segment, Karol Bagh (W02)",
+                    "body": (
+                        "To,\n"
+                        "The Central Public Information Officer (CPIO),\n"
+                        "Municipal Corporation of Delhi (MCD),\n"
+                        "Delhi, India\n\n"
+                        "Subject: Request for Information under Section 6(1) of the Right to Information Act, 2005.\n\n"
+                        "Respected Sir/Madam,\n\n"
+                        "This is regarding the municipal waste container (Asset ID: MCD-DL-1084) located at Karol Bagh segment under Karol Bagh (W02). "
+                        "Our civic monitoring systems indicate that this asset has remained in a CRITICAL overflow condition for over 120 hours, "
+                        "posing severe health, sanitization, and environmental hazards to the residents of the locality.\n\n"
+                        "In this context, please provide the following information:\n"
+                        "1. Daily waste collection log sheets for Asset ID: MCD-DL-1084 from the period of last 10 days to the date of reply.\n"
+                        "2. Details of the collection van/truck assigned to this segment, including transit logs and schedule.\n"
+                        "3. Copy of the citizen complaints received and action taken reports for this specific dustbin location.\n"
+                        "4. Name and designation of the sanitation inspector responsible for ward W02 during this period.\n\n"
+                        "I request you to kindly provide the information at the earliest.\n\n"
+                        "Yours faithfully,\n"
+                        "[Concerned Citizen of Delhi]"
+                    )
+                }
+            }
+        ]
+    return JSONResponse(content=rtis)
+
+
 @app.get("/api/my-reports")
 @limiter.limit("30/minute")
 async def get_my_reports(request: Request, authorization: Optional[str] = Header(None)):
@@ -1076,6 +1203,17 @@ async def serve_citizen_portal_report(bin: Optional[str] = None):
 async def serve_admin_portal():
     """Serve Admin Portal."""
     filepath = os.path.join(FRONTEND_DIR, "admin.html")
+    with open(filepath, "r", encoding="utf-8") as f:
+        return HTMLResponse(
+            content=f.read(),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+
+
+@app.get("/transparency")
+async def serve_transparency_dashboard():
+    """Serve Public Transparency & RTI Dashboard."""
+    filepath = os.path.join(FRONTEND_DIR, "transparency.html")
     with open(filepath, "r", encoding="utf-8") as f:
         return HTMLResponse(
             content=f.read(),
