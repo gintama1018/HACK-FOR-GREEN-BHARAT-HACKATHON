@@ -7,7 +7,7 @@
     <title>InfraWatch Nexus — Admin Control Room</title>
     <meta name="description"
         content="Municipal command center: manage road issues, dispatch trucks, monitor waste infrastructure.">
-    <link rel="stylesheet" href="/static/admin.css?v=8">
+    <link rel="stylesheet" href="/static/admin.css?v=9">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@600;700;800&family=Space+Grotesk:wght@500;700&display=swap"
@@ -208,9 +208,32 @@
         </aside>
     </div>
 
+    <!-- ── BOTTOM STATS BAR ──────────────────────────────────────── -->
+    <div class="bottom-stats-bar" id="bottomStatsBar">
+        <div class="stat-card">
+            <span class="stat-label">TOTAL BINS</span>
+            <span class="stat-val" id="statTotalBins">106</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+            <span class="stat-label">ACTIVE OVERFLOW</span>
+            <span class="stat-val" id="statOverflow">0</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+            <span class="stat-label">WASTE INDEX</span>
+            <span class="stat-val" id="statWasteIndex">0%</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-card">
+            <span class="stat-label">ACTIVE TRUCKS</span>
+            <span class="stat-val" id="statActiveTrucks">0</span>
+        </div>
+    </div>
+
     <div class="toast-container" id="toastContainer"></div>
     <script src="/static/shared.js?v=5"></script>
-    <script src="/static/admin.js?v=12"></script>
+    <script src="/static/admin.js?v=13"></script>
     <script>
     // ── QR CODE TAB ───────────────────────────────────────────────
     (function() {
