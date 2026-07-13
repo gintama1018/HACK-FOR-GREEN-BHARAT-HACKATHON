@@ -90,9 +90,9 @@ async function _authHeaders() {
             console.warn('[Auth] getTokenSilently failed:', errorMsg);
         }
         
-        if (e.error === 'login_required' || e.error === 'consent_required') {
-            await _auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: location.origin } });
-        }
+        // if (e.error === 'login_required' || e.error === 'consent_required') {
+        //     await _auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: location.origin } });
+        // }
         return {};
     }
 }

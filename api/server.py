@@ -300,6 +300,7 @@ async def confirm_dustbin_report(
 
     # Dual write: file (for Pathway) + DB (for persistence)
     filename = _write_event(WASTE_REPORT_DIR, "waste", event)
+    print(f"[API] Confirmed waste report: {filename}")
     try:
         insert_event("waste", event)
     except Exception as e:
