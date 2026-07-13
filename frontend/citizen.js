@@ -978,6 +978,49 @@ async function submitReport(dustbinId, overflow, photoUrl) {
             showToast(`Report submitted for ${dustbinId}!`, 'success');
             addRecentReport(dustbinId);
 
+            // Instantly highlight the reported bin in the UI (real-time local feedback)
+            const localDustbinState = {
+                dustbin_id: dustbinId,
+                state: 'Reported',
+                report_count: 1,
+                max_overflow: overflow,
+                street: configData?.dustbins?.[dustbinId]?.street || 'Unknown Street',
+                ward_id: configData?.dustbins?.[dustbinId]?.ward_id || 'Unknown Ward',
+                color: '#3B82F6'
+            };
+            
+            if (dashboard && Array.isArray(dashboard.dustbin_states)) {
+                const idx = dashboard.dustbin_states.findIndex(d => d.dustbin_id === dustbinId);
+                if (idx !== -1) {
+                    dashboard.dustbin_states[idx] = {
+                        ...dashboard.dustbin_states[idx],
+                        ...localDustbinState
+                    };
+                } else {
+                    dashboard.dustbin_states.push(localDustbinState);
+                }
+            }
+            
+            if (markers[dustbinId]) {
+                const marker = markers[dustbinId];
+                marker.setIcon(createDivIcon('marker-reported', 'marker-md'));
+                marker.setPopupContent(`
+                    <div style="font-family: 'Inter', sans-serif;">
+                        <b style="font-size: 14px;">${dustbinId}</b><br>
+                        <div style="font-size: 11px; color: #94A3B8; margin-bottom: 6px;">${localDustbinState.street} (${localDustbinState.ward_id})</div>
+                        <div style="background: #3B82F620; border: 1px solid #3B82F650; color: #3B82F6; padding: 4px 8px; border-radius: 4px; display: inline-block; font-weight: 600; font-size: 11px;">
+                            ● REPORTED
+                        </div>
+                        <div style="margin-top: 6px; font-size: 12px; font-weight: 500;">Reports: 1 | Overflow: ${overflow}/5</div>
+                    </div>
+                `);
+            }
+            if (fullMarkers[dustbinId]) {
+                const marker = fullMarkers[dustbinId];
+                marker.setIcon(createDivIcon('marker-reported', 'marker-md'));
+            }
+            updateStatsBar();
+
             // Reward preview badge for logged-in users
             if (_authUser && data.reward_points) {
                 const rewardBadge = document.getElementById('rewardPreviewBadge') || _createRewardBadge();
@@ -1177,7 +1220,10 @@ function detectStateChanges(newDashboard) {
             events.push({
                 type: 'info', icon: '📢',
                 text: `${newCount} new civic report${newCount > 1 ? 's' : ''} for ${ds.dustbin_id} on ${ds.street}`,
-                time: now, priority: 1
+                time: now,
+                pushTitle: '📢 New Citizen Report',
+                pushBody: `${ds.dustbin_id} reported overflowing at ${ds.street}`,
+                priority: 2
             });
         }
     }
