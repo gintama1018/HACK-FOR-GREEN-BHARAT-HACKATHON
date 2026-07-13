@@ -178,6 +178,17 @@ graph TD
 | 📱 **QR Scan-to-Report** | Each dustbin has a unique QR code; scanning on mobile pre-fills the report form instantly |
 | 🎙️ **Hindi Voice TTS** | ElevenLabs speaks *"आपकी शिकायत सफलतापूर्वक दर्ज हो गई!"* after every report |
 
+### New in v8.0: Transparency Portal, Glassmorphic Command Center, Dynamic Routing & Autocomplete Search
+
+| Feature | Description |
+|---------|-------------|
+| 🌐 **Public Transparency Dashboard** | Dedicated `/transparency` glass portal showing active city warnings, statistics, and auto-generated Right to Information (RTI) drafts for unresolved critical issues (>72h). |
+| 📄 **Auto-Generated RTI Drafts** | Complies professional Section 6(1) RTI requests detailing neglected assets, streets, and inspectors with 1-click text copying. |
+| 🛡️ **Glassmorphic Command Center** | Re-imagined Admin Portal with CartoDB Dark Matter map overlays, floating card panels, and horizontal scrollable tab pills. |
+| 🔍 **Smart Autocomplete Search** | Search bar on Citizen Portal that auto-suggests and pans/zooms to Wards, Dustbins, and Streets on typing or selection. |
+| 📍 **Red/Yellow Hazard Routes** | Displays exactly 1 primary route (red, thick) and 2 alternative approach routes (yellow, dashed) for any reported road issue. |
+| ⚡ **Zero-Delay Highlight & Alerts** | Instantly turns reported markers blue locally upon submission and triggers live browser push notifications when a new report is filed. |
+
 ---
 
 ## 📸 Screenshots
