@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadConfig();
     initDashMap();
     initReportFlow();
+    initSearch();
     connectWebSocket();
     setTimeout(_fetchDashboardFallback, 800); // Seed data before first WS message
 });
@@ -456,7 +457,7 @@ function updateStatsBar() {
     const states = dashboard.dustbin_states || [];
     const total = states.length || 72;
     const overflowing = states.filter(d =>
-        d.state === 'Critical' || d.state === 'Escalated'
+        d.state === 'Critical' || d.state === 'Escalated' || d.state === 'Reported'
     ).length;
     const critical = states.filter(d => d.state === 'Critical').length;
     const clear = states.filter(d => d.state === 'Clear').length;
@@ -708,7 +709,86 @@ function zoomToAlert(item) {
         }
     }, 250);
 }
+// ── SEARCH FUNCTIONALITY ─────────────────────────────────────────────
+function initSearch() {
+    const searchInput = document.getElementById('searchLocation');
+    const datalist = document.getElementById('searchSuggestions');
+    if (!searchInput) return;
 
+    // Populate autocomplete suggestions
+    if (datalist && configData) {
+        let optionsHtml = '';
+        for (const [wid, info] of Object.entries(configData.wards)) {
+            optionsHtml += `<option value="${info.name} (${wid})"></option>`;
+        }
+        for (const [did, info] of Object.entries(configData.dustbins)) {
+            optionsHtml += `<option value="${did} — ${info.street}"></option>`;
+        }
+        datalist.innerHTML = optionsHtml;
+    }
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            triggerSearch(searchInput.value.trim());
+        }
+    });
+
+    searchInput.addEventListener('input', () => {
+        const val = searchInput.value.trim();
+        if (val.includes('(W') || val.includes(' — ')) {
+            triggerSearch(val);
+        }
+    });
+}
+
+function triggerSearch(val) {
+    if (!val) return;
+    let searchVal = val;
+    let idMatch = val.match(/\((W\d+)\)/);
+    if (idMatch) {
+        searchVal = idMatch[1];
+    } else {
+        let binMatch = val.split(' — ');
+        if (binMatch.length > 0) searchVal = binMatch[0].trim();
+    }
+
+    const query = searchVal.toLowerCase();
+
+    // 1. Search exact dustbin ID
+    const exactBin = Object.keys(configData.dustbins).find(id => id.toLowerCase() === query);
+    if (exactBin) {
+        const info = configData.dustbins[exactBin];
+        dashMap.setView([info.lat, info.lng], 16);
+        if (markers[exactBin]) markers[exactBin].openPopup();
+        showToast(`📍 Located Dustbin: ${exactBin}`, 'success');
+        return;
+    }
+
+    // 2. Search exact Ward ID / Name
+    const matchingWard = Object.entries(configData.wards).find(([id, info]) => 
+        id.toLowerCase() === query || info.name.toLowerCase().includes(query)
+    );
+    if (matchingWard) {
+        const [wid, info] = matchingWard;
+        dashMap.setView([info.lat, info.lng], 14);
+        showToast(`📍 Centered on Ward: ${info.name}`, 'success');
+        return;
+    }
+
+    // 3. Search partial dustbin ID or street name
+    const partialBin = Object.entries(configData.dustbins).find(([id, info]) => 
+        id.toLowerCase().includes(query) || info.street.toLowerCase().includes(query)
+    );
+    if (partialBin) {
+        const [bid, info] = partialBin;
+        dashMap.setView([info.lat, info.lng], 16);
+        if (markers[bid]) markers[bid].openPopup();
+        showToast(`📍 Located Dustbin: ${bid} (${info.street})`, 'success');
+        return;
+    }
+
+    showToast('No matching dustbin, ward, or street found.', 'error');
+}
 
 
 // ── REPORT FLOW ─────────────────────────────────────────────────────

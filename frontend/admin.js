@@ -498,7 +498,7 @@ function connectWebSocket() {
 
         // Update Bottom Stats Card
         const totalBins = dashboard.dustbin_states?.length || 106;
-        const overflowBins = (dashboard.dustbin_states || []).filter(ds => ds.overflow_level >= 3 || ds.state === 'Critical' || ds.state === 'Escalated').length;
+        const overflowBins = (dashboard.dustbin_states || []).filter(ds => ds.state === 'Critical' || ds.state === 'Escalated' || ds.state === 'Reported').length;
         const wasteIndex = dashboard.city_waste_index || 0;
         const activeTrucks = dashboard.active_vans || 0;
 
