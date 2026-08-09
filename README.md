@@ -19,6 +19,7 @@
 ---
 
 **🔴 Live Demo →** [infrawatch-nexus-tnlf.onrender.com](https://infrawatch-nexus-tnlf.onrender.com) &nbsp;|&nbsp; **🛡️ Admin Portal →** [/admin](https://infrawatch-nexus-tnlf.onrender.com/admin) *(Token: set via `ADMIN_TOKEN` env var)*
+VIDEO AND PPT LINK (DRIVE FOLDER) - **[https://drive.google.com/drive/folders/11m401_x95lNo32T_kcUAEAnKZeghheNe?usp=sharing](https://drive.google.com/drive/folders/11m401_x95lNo32T_kcUAEAnKZeghheNe?usp=sharing)**
 
 </div>
 
